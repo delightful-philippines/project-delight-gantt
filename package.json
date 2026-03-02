@@ -1,0 +1,43 @@
+{
+  "name": "project-delight-gantt",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:server": "nodemon --experimental-vm-modules server/index.js",
+    "dev:all": "concurrently -n Vite,Server -c blue,green \"vite\" \"nodemon --experimental-vm-modules server/index.js\"",
+    "migrate": "node --experimental-vm-modules server/migrate.js",
+    "db:clean": "node --experimental-vm-modules server/clean.js",
+    "db:sync": "node --experimental-vm-modules server/sync_employees.js",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@azure/msal-browser": "^5.3.0",
+    "@azure/msal-node": "^5.0.5",
+    "@azure/msal-react": "^5.0.5",
+    "@supabase/supabase-js": "^2.97.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "express-session": "^1.19.0",
+    "nodemailer": "^8.0.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^7.13.1",
+    "zustand": "^4.5.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.0",
+    "@types/react": "^18.3.5",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "concurrently": "^9.2.1",
+    "nodemon": "^3.1.14",
+    "tailwindcss": "^4.1.0",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.1"
+  }
+}
