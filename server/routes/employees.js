@@ -35,16 +35,14 @@ router.get('/', requireUser, identifyRole, async (req, res) => {
     
     let query = supabaseAdmin
       .from('employees')
-      .select('employee_id, first_name, last_name, company_email_add, position, department')
-      .not('company_email_add', 'is', null) // Must have an email
-      .not('company_email_add', 'eq', '');
+      .select('employee_id, first_name, last_name, company_email_add, position, department');
 
     if (req.query.search) {
       // search by name or email
       const searchTerm = req.query.search;
-      query = query.or(`first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,company_email_add.ilike.%${searchTerm}%,nick_name.ilike.%${searchTerm}%`).limit(100);
+      query = query.or(`first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,company_email_add.ilike.%${searchTerm}%,nick_name.ilike.%${searchTerm}%`).limit(1000);
     } else {
-      query = query.limit(3000);
+      query = query.limit(10000);
     }
 
     const { data, error } = await query;

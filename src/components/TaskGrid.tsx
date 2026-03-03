@@ -13,6 +13,7 @@ interface Props {
   scrollTop: number;
   onScrollTop: (value: number) => void;
   onViewportHeight: (value: number) => void;
+  viewportHeight: number;
   onAddSubtask: (parentTask: Task) => void;
   onEditTask: (task: Task) => void;
   onDeleteTask: (task: Task) => void;
@@ -38,6 +39,7 @@ export const TaskGrid = React.memo(function TaskGrid({
   scrollTop,
   onScrollTop,
   onViewportHeight,
+  viewportHeight,
   onAddSubtask,
   onEditTask,
   onDeleteTask,
@@ -51,21 +53,6 @@ export const TaskGrid = React.memo(function TaskGrid({
   const [rect, setRect] = useState<{ top: number; left: number; width: number } | null>(null);
 
   useEffect(() => {
-    if (!ref.current) return;
-    if (Math.abs(ref.current.scrollTop - scrollTop) > 1) {
-      ref.current.scrollTop = scrollTop;
-    }
-  }, [scrollTop]);
-
-  useEffect(() => {
-    if (!ref.current) return;
-    const resize = (): void => onViewportHeight(ref.current?.clientHeight ?? 620);
-    resize();
-    window.addEventListener("resize", resize);
-    return () => window.removeEventListener("resize", resize);
-  }, [onViewportHeight]);
-
-  useEffect(() => {
     const onDocDown = (e: MouseEvent): void => {
       if ((e.target as HTMLElement).closest('.task-menu-dropdown')) return;
       setOpenMenuTaskId(null);
@@ -74,17 +61,18 @@ export const TaskGrid = React.memo(function TaskGrid({
     return () => document.removeEventListener("mousedown", onDocDown);
   }, []);
 
+  // Start/End indices for virtualization
   const [startIndex, endIndex] = useMemo(() => {
     const buffer = 10;
     const from = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - buffer);
-    const to = Math.min(rowIds.length, from + Math.ceil((ref.current?.clientHeight ?? 620) / ROW_HEIGHT) + buffer * 2);
+    const to = Math.min(rowIds.length, from + Math.ceil((viewportHeight || 620) / ROW_HEIGHT) + buffer * 2);
     return [from, to];
-  }, [rowIds.length, scrollTop]);
+  }, [rowIds.length, scrollTop, viewportHeight]);
   const visible = rowIds.slice(startIndex, endIndex);
 
   return (
-    <section className="min-h-0 min-w-0 border-r border-slate-200 bg-white flex flex-col overflow-hidden">
-      <div className="scroll-premium min-h-0 flex-1 overflow-auto" ref={ref} onScroll={(e) => onScrollTop((e.target as HTMLDivElement).scrollTop)}>
+    <section className="min-h-full min-w-0 border-r border-slate-200 bg-white flex flex-col">
+      <div className="min-h-0 flex-1">
         <div
           className="sticky top-0 z-[100] grid h-12 items-center border-b border-slate-200 bg-white/95 backdrop-blur-sm text-xs font-medium uppercase tracking-wider text-slate-400"
           style={{ gridTemplateColumns: GRID_COLUMNS, width: 'max-content', minWidth: '100%' }}

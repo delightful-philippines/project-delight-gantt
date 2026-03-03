@@ -9,6 +9,7 @@ import "./styles.css";
 const LoginPage = lazy(() => import("./components/LoginPage").then(m => ({ default: m.LoginPage })));
 const ProjectsPage = lazy(() => import("./components/ProjectsPage").then(m => ({ default: m.ProjectsPage })));
 const GanttApp = lazy(() => import("./components/GanttApp").then(m => ({ default: m.GanttApp })));
+const AssigneePermissions = lazy(() => import("./components/AssigneePermissions").then(m => ({ default: m.AssigneePermissions })));
 
 // ── Shared Loading Fallback ───────────────────────────────────
 const PageLoader = () => (
@@ -91,6 +92,14 @@ function AppRouter() {
             element={
               <ProtectedRoute>
                 <GanttApp />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/permissions" 
+            element={
+              <ProtectedRoute>
+                <AssigneePermissions />
               </ProtectedRoute>
             } 
           />

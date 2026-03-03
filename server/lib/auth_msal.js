@@ -20,21 +20,21 @@ const msalConfig = {
 
 const cca = new msal.ConfidentialClientApplication(msalConfig);
 
-export const getAuthUrl = (state) => {
+export const getAuthUrl = (state, redirectUri) => {
     const authCodeUrlParameters = {
         scopes: ["user.read"],
-        redirectUri: process.env.AZURE_REDIRECT_URI,
+        redirectUri: redirectUri || process.env.AZURE_REDIRECT_URI,
         state: state
     };
 
     return cca.getAuthCodeUrl(authCodeUrlParameters);
 };
 
-export const acquireTokenByCode = (code) => {
+export const acquireTokenByCode = (code, redirectUri) => {
     const tokenRequest = {
         code: code,
         scopes: ["user.read"],
-        redirectUri: process.env.AZURE_REDIRECT_URI,
+        redirectUri: redirectUri || process.env.AZURE_REDIRECT_URI,
     };
 
     return cca.acquireTokenByCode(tokenRequest);

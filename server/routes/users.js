@@ -118,7 +118,7 @@ router.get('/', requireUser, requireSuperAdmin, async (_req, res) => {
 // ── POST /api/users ──────────────────────────────────────────────
 // Insert or Update a user's role (Super Admin only)
 router.post('/', requireUser, requireSuperAdmin, async (req, res) => {
-  const { email, role } = req.body;
+  const { email, role, can_view_all_projects } = req.body;
   if (!email || !role) return res.status(400).json({ error: 'Email and role required.' });
   if (!['super_admin', 'editor', 'viewer'].includes(role)) {
     return res.status(400).json({ error: 'Role must be super_admin, editor, or viewer.' });
@@ -134,7 +134,11 @@ router.post('/', requireUser, requireSuperAdmin, async (req, res) => {
 
   const { data, error } = await supabaseAdmin
     .from('app_users')
-    .upsert({ email: normalizedEmail, role })
+    .upsert({ 
+      email: normalizedEmail, 
+      role,
+      ...(can_view_all_projects !== undefined && { can_view_all_projects })
+    })
     .select()
     .single();
 

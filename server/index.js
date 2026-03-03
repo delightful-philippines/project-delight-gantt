@@ -82,6 +82,11 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Silence Chrome DevTools internal requests (.well-known)
+app.get('/.well-known/appspecific/com.chrome.devtools.json', (_req, res) => {
+  res.status(204).end();
+});
+
 // ── 404 & Error Handling ─────────────────────────────────────
 app.use('/api/*', (_req, res) => res.status(404).json({ error: 'API route not found.' }));
 

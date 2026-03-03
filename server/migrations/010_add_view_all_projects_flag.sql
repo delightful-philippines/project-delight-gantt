@@ -1,0 +1,1 @@
+ALTER TABLE app_users ADD COLUMN IF NOT EXISTS can_view_all_projects BOOLEAN DEFAULT FALSE;

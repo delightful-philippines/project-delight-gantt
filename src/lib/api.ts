@@ -29,6 +29,7 @@ export interface DBUser {
   role: 'super_admin' | 'editor' | 'viewer';
   first_name?: string | null;
   last_name?: string | null;
+  can_view_all_projects?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -96,8 +97,8 @@ export const api = {
   users: {
     me: () => req<DBUser>('/users/me'),
     list: () => req<DBUser[]>('/users'),
-    upsert: (email: string, role: string) =>
-      req<DBUser>('/users', { method: 'POST', body: JSON.stringify({ email, role }) }),
+    upsert: (email: string, role: string, extra?: { can_view_all_projects?: boolean }) =>
+      req<DBUser>('/users', { method: 'POST', body: JSON.stringify({ email, role, ...extra }) }),
     invite: (email: string, role: string) =>
       req<{ message: string; user: DBUser }>('/users/invite', { method: 'POST', body: JSON.stringify({ email, role }) }),
     delete: (email: string) =>

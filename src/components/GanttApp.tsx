@@ -367,6 +367,7 @@ export function GanttApp(): JSX.Element {
   const [activeTab, setActiveTab] = useState<"Gantt" | "Timeline" | "Tasks" | "Progress">("Gantt");
   const [modal, setModal] = useState<ModalState>({ type: "none" });
   const [systemUsers, setSystemUsers] = useState<DBUser[]>([]);
+  const [registeredUsers, setRegisteredUsers] = useState<DBUser[]>([]);
   const [projectDraft, setProjectDraft] = useState<ProjectDraft>({
     name: "",
     start_date: new Date().toISOString().slice(0, 10),
@@ -380,6 +381,12 @@ export function GanttApp(): JSX.Element {
   const [showDbStatus, setShowDbStatus] = useState(false);
   const [employeeInfo, setEmployeeInfo] = useState<DBEmployee | null>(null);
   const [collapsedTaskIds, setCollapsedTaskIds] = useState<Set<string>>(new Set());
+
+  const projectViewers = useMemo(() => {
+    if (!registeredUsers.length) return [];
+    // Only show people with global view permissions as "Viewers"
+    return registeredUsers.filter(u => u.can_view_all_projects);
+  }, [registeredUsers]);
 
   const visibleRowIds = useMemo(() => {
     if (!activeSheet) return [];
@@ -442,17 +449,22 @@ export function GanttApp(): JSX.Element {
     const fetchUsers = async () => {
       try {
         const data = await api.employees.search('');
-        const mappedUsers = data.map((e: any) => ({
-          email: e.company_email_add,
+        const mappedUsers: DBUser[] = data.map((e: DBEmployee) => ({
+          email: e.company_email_add || `id:${e.employee_id}`,
           first_name: e.first_name,
           last_name: e.last_name,
-          role: 'viewer' as const, // Standard viewer role for system employees
+          role: 'viewer' as const,
           created_at: '',
-          updated_at: ''
+          updated_at: '',
+          can_view_all_projects: false
         }));
         setSystemUsers(mappedUsers);
+        
+        // Also fetch registered users to identify viewers
+        const regUsers = await api.users.list();
+        setRegisteredUsers(regUsers);
       } catch (err) {
-        console.error("Failed to fetch system users (employees):", err);
+        console.error("Failed to fetch directory or registered users:", err);
       }
     };
     fetchUsers();
@@ -661,15 +673,15 @@ export function GanttApp(): JSX.Element {
               )}
               
               <div className="hidden sm:flex -space-x-1.5 mr-2">
-                {assignees.slice(0, 3).map(name => (
-                  <UserAvatar key={name} email={name.includes('@') ? name : undefined} name={name} size="md" className="border-2 border-white ring-1 ring-slate-100" />
+                {projectViewers.slice(0, 3).map((u: DBUser) => (
+                  <UserAvatar key={u.email} email={u.email} name={`${u.first_name || ''} ${u.last_name || ''}`} size="md" className="border-2 border-white ring-1 ring-slate-100" />
                 ))}
-                {assignees.length > 3 && (
+                {projectViewers.length > 3 && (
                   <button 
                     onClick={() => setModal({ type: "team" })}
                     className="flex h-8 w-8 items-center justify-center rounded-lg border-2 border-white bg-slate-50 text-xs font-medium text-slate-400 ring-1 ring-slate-100 hover:bg-slate-100 transition-colors"
                   >
-                    +{assignees.length - 3}
+                    +{projectViewers.length - 3}
                   </button>
                 )}
               </div>
@@ -789,7 +801,11 @@ export function GanttApp(): JSX.Element {
                     />
                     {userRole !== 'viewer' && (
                       <>
-                        <button className="btn-premium btn-primary h-9 px-4 text-xs group" onClick={() => setModal({ type: "add_task", parentTaskId: null })}>
+                        <button className="btn-premium btn-primary h-9 px-4 text-xs group" onClick={() => {
+                          const defaultAssignee = activeSheet?.project.lead || "Unassigned";
+                          setTaskDraft({ ...blankTaskDraft(activeSheet?.project.start_date || new Date().toISOString().slice(0, 10)), assignee: defaultAssignee });
+                          setModal({ type: "add_task", parentTaskId: null });
+                        }}>
                           <svg className="w-4 h-4 mr-1 transition-transform group-hover:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                           New Task
                         </button>
@@ -818,73 +834,82 @@ export function GanttApp(): JSX.Element {
         </header>
 
         {activeSheet ? (
-          <div className={`grid min-h-0 flex-1 gap-px overflow-hidden pr-0 pb-px ${
-            activeTab === "Gantt" 
-              ? "grid-cols-1 lg:grid-cols-[minmax(640px,45%)_1fr]" 
-              : "grid-cols-1"
-          }`}>
-            {(activeTab === "Gantt" || activeTab === "Tasks") && (
-              <TaskGrid
-                sheet={activeSheet}
-                rowIds={visibleRowIds}
-                scrollTop={scrollTop}
-                onScrollTop={setScrollTop}
-                onViewportHeight={setViewportHeight}
-                onAddSubtask={(p: Task) => {
-                  setTaskDraft(blankTaskDraft(p.start_date));
-                  setModal({ type: "add_task", parentTaskId: p.id });
-                }}
-                onEditTask={(t: Task) => {
-                  setTaskDraft({ 
-                    title: t.title, 
-                    start_date: t.start_date, 
-                    end_date: t.end_date, 
-                    progress: t.progress,
-                    bg_color: t.bg_color, 
-                    text_color: t.text_color,
-                    assignee: t.assignee,
-                    dependencies: t.dependencies || [],
-                    is_milestone: t.is_milestone || false
-                  });
-                  setModal({ type: "edit_task", taskId: t.id });
-                }}
-                onDeleteTask={(t: Task) => setModal({ type: "delete_task", taskId: t.id })}
-                userRole={userRole}
-                systemUsers={systemUsers}
-                collapsedTaskIds={collapsedTaskIds}
-                onToggleCollapse={toggleCollapse}
-              />
-            )}
-            {(activeTab === "Gantt" || activeTab === "Timeline") && (
-              <Timeline
-                sheet={activeSheet}
-                rowIds={visibleRowIds}
-                scrollTop={scrollTop}
-                onScrollTop={setScrollTop}
-                viewportHeight={viewportHeight}
-                zoom={zoom}
-                onEditTask={(t: Task) => {
-                   setTaskDraft({ 
-                    title: t.title, 
-                    start_date: t.start_date, 
-                    end_date: t.end_date, 
-                    progress: t.progress,
-                    bg_color: t.bg_color, 
-                    text_color: t.text_color,
-                    assignee: t.assignee,
-                    dependencies: t.dependencies || [],
-                    is_milestone: t.is_milestone || false
-                  });
-                  setModal({ type: "edit_task", taskId: t.id });
-                }}
-                showCriticalPath={showCriticalPath}
-                baseline={selectedBaselineIndex !== null ? activeSheet.project.baselines[selectedBaselineIndex] : undefined}
-                userRole={userRole}
-              />
-            )}
-            {activeTab === "Progress" && (
-              <TeamProgress sheet={activeSheet} systemUsers={systemUsers} />
-            )}
+          <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+            {/* Shared Vertical Scroll Container */}
+            <div 
+              className="flex-1 overflow-y-auto scroll-premium" 
+              onScroll={(e) => setScrollTop((e.target as HTMLDivElement).scrollTop)}
+            >
+              <div className={`grid min-h-full gap-px pr-0 pb-px ${
+                activeTab === "Gantt" 
+                  ? "grid-cols-1 lg:grid-cols-[minmax(640px,45%)_1fr]" 
+                  : "grid-cols-1"
+              }`}>
+                {(activeTab === "Gantt" || activeTab === "Tasks") && (
+                  <TaskGrid
+                    sheet={activeSheet}
+                    rowIds={visibleRowIds}
+                    scrollTop={scrollTop}
+                    onScrollTop={setScrollTop}
+                    onViewportHeight={setViewportHeight}
+                    viewportHeight={viewportHeight}
+                    onAddSubtask={(p: Task) => {
+                      setTaskDraft({ ...blankTaskDraft(p.start_date), assignee: p.assignee || "Unassigned" });
+                      setModal({ type: "add_task", parentTaskId: p.id });
+                    }}
+                    onEditTask={(t: Task) => {
+                      setTaskDraft({ 
+                        title: t.title, 
+                        start_date: t.start_date, 
+                        end_date: t.end_date, 
+                        progress: t.progress,
+                        bg_color: t.bg_color, 
+                        text_color: t.text_color,
+                        assignee: t.assignee,
+                        dependencies: t.dependencies || [],
+                        is_milestone: t.is_milestone || false
+                      });
+                      setModal({ type: "edit_task", taskId: t.id });
+                    }}
+                    onDeleteTask={(t: Task) => setModal({ type: "delete_task", taskId: t.id })}
+                    userRole={userRole}
+                    systemUsers={systemUsers}
+                    collapsedTaskIds={collapsedTaskIds}
+                    onToggleCollapse={toggleCollapse}
+                  />
+                )}
+                {(activeTab === "Gantt" || activeTab === "Timeline") && (
+                  <Timeline
+                    sheet={activeSheet}
+                    rowIds={visibleRowIds}
+                    scrollTop={scrollTop}
+                    onScrollTop={setScrollTop}
+                    viewportHeight={viewportHeight}
+                    zoom={zoom}
+                    onEditTask={(t: Task) => {
+                       setTaskDraft({ 
+                        title: t.title, 
+                        start_date: t.start_date, 
+                        end_date: t.end_date, 
+                        progress: t.progress,
+                        bg_color: t.bg_color, 
+                        text_color: t.text_color,
+                        assignee: t.assignee,
+                        dependencies: t.dependencies || [],
+                        is_milestone: t.is_milestone || false
+                      });
+                      setModal({ type: "edit_task", taskId: t.id });
+                    }}
+                    showCriticalPath={showCriticalPath}
+                    baseline={selectedBaselineIndex !== null ? activeSheet.project.baselines[selectedBaselineIndex] : undefined}
+                    userRole={userRole}
+                  />
+                )}
+                {activeTab === "Progress" && (
+                  <TeamProgress sheet={activeSheet} systemUsers={systemUsers} />
+                )}
+              </div>
+            </div>
           </div>
         ) : (
           <div className="grid flex-1 place-items-center bg-slate-50">
@@ -1043,36 +1068,32 @@ export function GanttApp(): JSX.Element {
 
       {modal.type === "team" && (
         <ModalLayout
-          title="Team Members"
+          title="Shared Viewers"
           onCancel={() => setModal({ type: "none" })}
           onConfirm={() => setModal({ type: "none" })}
-          confirmLabel="Manage Team"
+          confirmLabel="Close"
         >
           <div className="grid gap-4 py-2">
-            {assignees.length > 0 ? (
-              assignees.map(name => (
-                <div key={name} className="flex items-center justify-between rounded-xl border border-slate-100 p-4 transition-all hover:bg-slate-50">
+            {projectViewers.length > 0 ? (
+              projectViewers.map((user: DBUser) => (
+                <div key={user.email} className="flex items-center justify-between rounded-xl border border-slate-100 p-4 transition-all hover:bg-slate-50">
                   <div className="flex items-center gap-4">
-                    <UserAvatar email={name.includes('@') ? name : undefined} size="lg" />
+                    <UserAvatar email={user.email} size="lg" />
                     <div>
                       <div className="text-sm font-medium text-slate-800">
-                        {(() => {
-                           const user = systemUsers.find(u => u.email === name);
-                           if (user?.first_name && user?.last_name) return `${user.first_name} ${user.last_name}`;
-                           return name;
-                        })()}
+                        {user.first_name || user.last_name ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : user.email}
                       </div>
                       <div className="text-xs text-slate-400 uppercase tracking-widest">
-                        {name === activeSheet?.project.lead ? "Project Lead" : "Contributor"}
+                        {user.can_view_all_projects ? "Global Viewer" : "Restricted"}
                       </div>
                     </div>
                   </div>
-                  <div className="px-3 py-1 bg-slate-100 rounded-lg text-xs font-medium text-slate-400 uppercase">Active</div>
+                  <div className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-bold uppercase tracking-widest">Workspace Viewer</div>
                 </div>
               ))
             ) : (
               <div className="py-8 text-center bg-slate-50 rounded-3xl border border-dashed border-slate-200">
-                <p className="text-sm text-slate-400">No assignees found in this project.</p>
+                <p className="text-sm text-slate-400">No global viewers configured.</p>
               </div>
             )}
           </div>

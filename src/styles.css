@@ -24,7 +24,7 @@
   }
 
   body {
-    @apply bg-slate-50 text-slate-900 antialiased font-sans;
+    @apply bg-slate-100/50 text-slate-900 antialiased font-sans;
   }
 
   button,
@@ -41,16 +41,16 @@
   }
 
   .glass-panel {
-    @apply border border-slate-200/60 bg-white/80 backdrop-blur-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] ring-1 ring-white/50;
+    @apply border border-slate-200/40 bg-slate-50/80 backdrop-blur-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] ring-1 ring-white/50;
   }
 
   .card-premium {
-    @apply rounded-2xl border border-slate-200/80 bg-white transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)];
-    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 0 3px rgba(0,0,0,0.02);
+    @apply rounded-3xl border border-slate-200/60 bg-white transition-all duration-500 hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)] hover:-translate-y-1 active:scale-[0.98];
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.04), 0 0 1px rgba(0,0,0,0.01);
   }
 
   .input-premium {
-    @apply h-11 rounded-xl border border-slate-200 bg-slate-50/50 px-4 text-sm text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10;
+    @apply h-11 rounded-xl border border-slate-200 bg-slate-100/30 px-4 text-sm text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10;
   }
 
   .btn-premium {
@@ -99,8 +99,17 @@
   to { opacity: 1; transform: translateX(-50%) translateY(-100%); }
 }
 
+@keyframes tooltip-down {
+  from { opacity: 0; transform: translateX(-50%) translateY(-4px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
 .animate-tooltip-up {
   animation: tooltip-up 0.2s ease-out forwards;
+}
+
+.animate-tooltip-down {
+  animation: tooltip-down 0.2s ease-out forwards;
 }
 
 @keyframes enter {

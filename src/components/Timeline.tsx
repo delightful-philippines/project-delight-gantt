@@ -49,11 +49,6 @@ export const Timeline = React.memo(function Timeline({
   const step = stepByZoom(zoom);
   const labelStep = Math.max(step, Math.ceil(120 / (scale * step)) * step);
 
-  useEffect(() => {
-    if (!ref.current) return;
-    if (Math.abs(ref.current.scrollTop - scrollTop) > 1) ref.current.scrollTop = scrollTop;
-  }, [scrollTop]);
-
   const taskList = Object.values(sheet.tasksById);
   const taskStarts = taskList.map(t => t.start_date);
   const taskEnds = taskList.map(t => t.end_date);
@@ -77,9 +72,9 @@ export const Timeline = React.memo(function Timeline({
   };
 
   return (
-    <section className="min-h-0 min-w-0 bg-white shadow-inner flex flex-col overflow-hidden relative">
-      <div className="scroll-premium flex-1 overflow-auto" ref={ref} onScroll={(e) => onScrollTop((e.target as HTMLDivElement).scrollTop)}>
-        <div className="sticky top-0 z-[110] bg-white">
+    <section className="min-h-full min-w-0 bg-white shadow-inner flex flex-col relative">
+      <div className="scroll-premium flex-1 overflow-x-auto overflow-y-visible" ref={ref}>
+        <div className="sticky top-0 z-[110] bg-white w-max">
           <svg width={chartWidth} height={HEADER_HEIGHT} className="select-none block">
             <g transform={`translate(${SVG_OFFSET_X}, 0)`}>
               {/* Header Background */}
@@ -426,16 +421,20 @@ export const Timeline = React.memo(function Timeline({
                   </text>
 
                   {/* Task Name INSIDE Bar */}
-                  {!task.is_milestone && w > 30 && (
-                    <text
-                      x={x + 8}
-                      y={y + barHeight / 2 + 3.5}
-                      fill="white"
-                      className="pointer-events-none text-[9px] font-bold uppercase tracking-wider mix-blend-overlay opacity-90 truncate"
-                      style={{ maxWidth: w - 16 }}
+                  {!task.is_milestone && w > 40 && (
+                    <foreignObject 
+                      x={x + 8} 
+                      y={y} 
+                      width={w - 16} 
+                      height={barHeight}
+                      className="pointer-events-none"
                     >
-                      {task.title}
-                    </text>
+                      <div className="flex h-full w-full items-center overflow-hidden">
+                        <span className="w-full truncate text-[9px] font-bold uppercase tracking-wider text-white mix-blend-overlay opacity-90">
+                          {task.title}
+                        </span>
+                      </div>
+                    </foreignObject>
                   )}
                 </g>
               );

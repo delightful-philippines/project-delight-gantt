@@ -6,7 +6,11 @@ const router = Router();
 
 router.get('/login', async (req, res) => {
     try {
-        const authUrl = await getAuthUrl(req.query.state || '/');
+        const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+        const host = req.headers['x-forwarded-host'] || req.headers.host;
+        const redirectUri = `${protocol}://${host}/api/auth/callback`;
+        
+        const authUrl = await getAuthUrl(req.query.state || '/', redirectUri);
         res.redirect(authUrl);
     } catch (error) {
         console.error('[Auth] Login error:', error);
@@ -32,7 +36,11 @@ router.get('/callback', async (req, res) => {
     }
 
     try {
-        const response = await acquireTokenByCode(req.query.code);
+        const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+        const host = req.headers['x-forwarded-host'] || req.headers.host;
+        const redirectUri = `${protocol}://${host}/api/auth/callback`;
+
+        const response = await acquireTokenByCode(req.query.code, redirectUri);
         
         // Save user to session
         req.session.user = {
@@ -56,7 +64,20 @@ router.get('/callback', async (req, res) => {
             
             console.log('[Auth Callback] Session saved successfully, redirecting to /');
             console.log('[Auth Callback] Set-Cookie headers:', res.getHeader('Set-Cookie'));
-            res.redirect('/');
+            
+            // Dynamically determine the base URL to prevent "jumping" to production
+            const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+            const host = req.headers['x-forwarded-host'] || req.headers.host;
+            
+            let baseUrl = `${protocol}://${host}`;
+            
+            // LOCAL FIX: If we are on the API port (3001), redirect back to the Frontend port (5173)
+            if (host === 'localhost:3001' || host === '127.0.0.1:3001') {
+                baseUrl = 'http://localhost:5173';
+            }
+            
+            console.log('[Auth Callback] Final Redirect to:', baseUrl);
+            res.redirect(`${baseUrl}/`);
         });
 
     } catch (error) {
