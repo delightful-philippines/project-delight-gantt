@@ -268,17 +268,17 @@ export function AssigneePermissions() {
                   {foundEmployees.map(emp => (
                     <button 
                       key={emp.employee_id}
-                      onClick={() => toggleSelectEmail(emp.company_email_add)}
-                      className={`w-full flex items-center justify-between px-4 py-3 text-left transition-colors ${selectedEmails.has(emp.company_email_add) ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}
+                      onClick={() => toggleSelectEmail(emp.company_email_add || emp.personal_email_add || "")}
+                      className={`w-full flex items-center justify-between px-4 py-3 text-left transition-colors ${selectedEmails.has(emp.company_email_add || emp.personal_email_add || "") ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}
                     >
                       <div className="flex items-center gap-3">
-                        <UserAvatar email={emp.company_email_add} size="sm" />
+                        <UserAvatar email={emp.company_email_add || emp.personal_email_add || undefined} size="sm" />
                         <div>
                           <p className="text-xs font-bold text-slate-800">{emp.first_name} {emp.last_name}</p>
-                          <p className="text-[10px] font-medium text-slate-400">{emp.company_email_add}</p>
+                          <p className="text-[10px] font-medium text-slate-400">{emp.company_email_add || emp.personal_email_add}</p>
                         </div>
                       </div>
-                      {selectedEmails.has(emp.company_email_add) && (
+                      {selectedEmails.has(emp.company_email_add || emp.personal_email_add || "") && (
                         <svg className="w-4 h-4 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
                       )}
                     </button>

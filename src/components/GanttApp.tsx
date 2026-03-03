@@ -51,7 +51,8 @@ function TaskForm({
   disableProgress = false,
   availableTasks = [],
   currentTaskId,
-  systemUsers
+  systemUsers,
+  onSearchUsers
 }: {
   value: TaskDraft;
   onChange: (next: TaskDraft) => void;
@@ -60,6 +61,7 @@ function TaskForm({
   availableTasks?: Task[];
   currentTaskId?: string;
   systemUsers: DBUser[];
+  onSearchUsers?: (term: string) => void;
 }): JSX.Element {
   // Local state for smooth editing without re-rendering the whole app
   const [local, setLocal] = useState(value);
@@ -117,6 +119,7 @@ function TaskForm({
           users={systemUsers}
           value={local.assignee || ""}
           onChange={(val) => sync({ ...local, assignee: val })}
+          onSearch={onSearchUsers}
         />
       </label>
 
@@ -450,7 +453,7 @@ export function GanttApp(): JSX.Element {
       try {
         const data = await api.employees.search('');
         const mappedUsers: DBUser[] = data.map((e: DBEmployee) => ({
-          email: e.company_email_add || `id:${e.employee_id}`,
+          email: (e.company_email_add || e.personal_email_add || `id:${e.employee_id}`).toLowerCase().trim(),
           first_name: e.first_name,
           last_name: e.last_name,
           role: 'viewer' as const,
@@ -467,9 +470,34 @@ export function GanttApp(): JSX.Element {
         console.error("Failed to fetch directory or registered users:", err);
       }
     };
+
     fetchUsers();
     api.employees.me().then(setEmployeeInfo).catch(console.error);
   }, []);
+
+  const handleSearchUsers = async (term: string) => {
+    if (!term || term.length < 2) return;
+    try {
+      const data = await api.employees.search(term);
+      const mappedResults: DBUser[] = data.map((e: DBEmployee) => ({
+        email: (e.company_email_add || e.personal_email_add || `id:${e.employee_id}`).toLowerCase().trim(),
+        first_name: e.first_name,
+        last_name: e.last_name,
+        role: 'viewer' as const,
+        created_at: '',
+        updated_at: '',
+        can_view_all_projects: false
+      }));
+      
+      setSystemUsers(prev => {
+        const existingEmails = new Set(prev.map(u => u.email));
+        const newUsers = mappedResults.filter(u => !existingEmails.has(u.email));
+        return [...prev, ...newUsers];
+      });
+    } catch (err) {
+      console.error("Search failed:", err);
+    }
+  };
 
   const editingTask: Task | null =
     modal.type === "edit_task" && activeSheet ? activeSheet.tasksById[modal.taskId] ?? null : null;
@@ -1135,6 +1163,7 @@ export function GanttApp(): JSX.Element {
                 users={systemUsers}
                 value={projectDraft.lead || ""}
                 onChange={(val) => setProjectDraft((d) => ({ ...d, lead: val }))}
+                onSearch={handleSearchUsers}
               />
             </label>
             <label className="grid gap-1.5 focus-within:text-blue-600 transition-colors">
@@ -1205,6 +1234,7 @@ export function GanttApp(): JSX.Element {
                 users={systemUsers}
                 value={projectDraft.lead || ""}
                 onChange={(val) => setProjectDraft((d) => ({ ...d, lead: val }))}
+                onSearch={handleSearchUsers}
               />
             </label>
             <label className="grid gap-1.5 focus-within:text-blue-600 transition-colors">
@@ -1236,6 +1266,7 @@ export function GanttApp(): JSX.Element {
             onChange={setTaskDraft} 
             availableTasks={activeSheet ? Object.values(activeSheet.tasksById) : []}
             systemUsers={systemUsers}
+            onSearchUsers={handleSearchUsers}
           />
         </ModalLayout>
       )}
@@ -1259,6 +1290,7 @@ export function GanttApp(): JSX.Element {
               availableTasks={activeSheet ? Object.values(activeSheet.tasksById) : []}
               currentTaskId={editingTask.id}
               systemUsers={systemUsers}
+              onSearchUsers={handleSearchUsers}
             />
             {editingTask.is_summary && (
               <div className="mt-4 flex gap-3 rounded-xl bg-amber-50 p-4 text-amber-700">

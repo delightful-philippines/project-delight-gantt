@@ -82,8 +82,8 @@ router.delete('/:id', async (req, res) => {
         .eq('id', baseline.project_id)
         .single();
         
-      if (!project || project.lead !== req.userEmail) {
-        return res.status(403).json({ error: 'Access denied.' });
+      if (!project || project.lead?.toLowerCase().trim() !== req.userEmail.toLowerCase().trim()) {
+        return res.status(403).json({ error: 'Access denied. Only the project Lead can delete baselines.' });
       }
     }
   }

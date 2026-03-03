@@ -7,6 +7,7 @@ interface UserSelectProps {
   users: DBUser[];
   value: string;
   onChange: (value: string) => void;
+  onSearch?: (term: string) => void;
   className?: string;
   placeholder?: string;
 }
@@ -15,6 +16,7 @@ export function UserSelect({
   users,
   value,
   onChange,
+  onSearch,
   className = "",
   placeholder = "Select assignee...",
 }: UserSelectProps) {
@@ -23,6 +25,14 @@ export function UserSelect({
   const [rect, setRect] = useState<{ top: number; left: number; width: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!onSearch) return;
+    const timeout = setTimeout(() => {
+      onSearch(searchTerm);
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [searchTerm, onSearch]);
 
   const selectedUser = users.find((u) => u.email === value);
 
@@ -79,12 +89,14 @@ export function UserSelect({
   };
 
   const filteredUsers = users.filter((u) => {
-    const searchStr = searchTerm.toLowerCase();
+    const searchParts = searchTerm.toLowerCase().trim().split(/\s+/).filter(Boolean);
+    if (!searchParts.length) return true;
+    
     const fullName = `${u.first_name || ""} ${u.last_name || ""}`.toLowerCase();
-    return (
-      u.email.toLowerCase().includes(searchStr) ||
-      fullName.includes(searchStr)
-    );
+    const email = u.email.toLowerCase();
+    
+    // Check if every part of the search term exists somewhere in either the full name or the email
+    return searchParts.every(part => fullName.includes(part) || email.includes(part));
   });
 
   return (

@@ -575,63 +575,68 @@ async function hydrateFromDB(
   // Fetch tasks + baselines for every project in parallel
   const sheets: Record<string, ProjectSheet> = {};
 
-  await Promise.all(
+  const results = await Promise.allSettled(
     dbProjects.map(async (proj) => {
-      const [dbTasks, dbBaselines] = await Promise.all([
-        api.tasks.list(proj.id),
-        api.baselines.list(proj.id),
-      ]);
+      try {
+        const [dbTasks, dbBaselines] = await Promise.all([
+          api.tasks.list(proj.id),
+          api.baselines.list(proj.id),
+        ]);
 
-      const tasksById: Record<string, Task> = {};
-      dbTasks.forEach((t) => {
-        tasksById[t.id] = {
-          id:           t.id,
-          project_id:   t.project_id,
-          parent_id:    t.parent_id,
-          title:        t.title,
-          start_date:   t.start_date,
-          end_date:     t.end_date,
-          duration:     t.duration,
-          bg_color:     t.bg_color,
-          text_color:   t.text_color,
-          is_summary:   t.is_summary,
-          is_milestone: t.is_milestone,
-          is_critical:  t.is_critical,
-          level:        t.level,
-          sort_order:   t.sort_order,
-          progress:     t.progress,
-          assignee:     t.assignee,
-          dependencies: t.dependencies,
+        const tasksById: Record<string, Task> = {};
+        dbTasks.forEach((t) => {
+          tasksById[t.id] = {
+            id:           t.id,
+            project_id:   t.project_id,
+            parent_id:    t.parent_id,
+            title:        t.title,
+            start_date:   t.start_date,
+            end_date:     t.end_date,
+            duration:     t.duration,
+            bg_color:     t.bg_color,
+            text_color:   t.text_color,
+            is_summary:   t.is_summary,
+            is_milestone: t.is_milestone,
+            is_critical:  t.is_critical,
+            level:        t.level,
+            sort_order:   t.sort_order,
+            progress:     t.progress,
+            assignee:     t.assignee,
+            dependencies: t.dependencies,
+          };
+        });
+
+        const baselines: Baseline[] = dbBaselines.map((b) => ({
+          id:        b.id,
+          label:     b.label,
+          timestamp: b.timestamp,
+          tasksById: b.tasksById as Record<string, Task>,
+          project:   b.project as Omit<Project, "baselines">,
+        }));
+
+        const project: Project = {
+          id:          proj.id,
+          name:        proj.name,
+          description: proj.description,
+          start_date:  proj.start_date,
+          end_date:    proj.end_date,
+          lead:        proj.lead,
+          progress:    proj.progress,
+          baselines,
         };
-      });
 
-      const baselines: Baseline[] = dbBaselines.map((b) => ({
-        id:        b.id,
-        label:     b.label,
-        timestamp: b.timestamp,
-        tasksById: b.tasksById as Record<string, Task>,
-        project:   b.project as Omit<Project, "baselines">,
-      }));
-
-      const project: Project = {
-        id:          proj.id,
-        name:        proj.name,
-        description: proj.description,
-        start_date:  proj.start_date,
-        end_date:    proj.end_date,
-        lead:        proj.lead,
-        progress:    proj.progress,
-        baselines,
-      };
-
-      const sheet: ProjectSheet = {
-        project,
-        tasksById,
-        childrenByParentId: {},
-        flatOrder: [],
-      };
-      recalc(sheet);
-      sheets[proj.id] = sheet;
+        const sheet: ProjectSheet = {
+          project,
+          tasksById,
+          childrenByParentId: {},
+          flatOrder: [],
+        };
+        recalc(sheet);
+        sheets[proj.id] = sheet;
+      } catch (err) {
+        console.warn(`[store] Failed to load project ${proj.id}:`, err);
+        // We don't throw, so other projects can still load
+      }
     })
   );
 

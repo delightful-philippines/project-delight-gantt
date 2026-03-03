@@ -147,7 +147,7 @@ router.get('/session', async (req, res) => {
             const { data: employee } = await supabaseAdmin
                 .from('employees')
                 .select('first_name, last_name')
-                .eq('company_email_add', req.session.user.email)
+                .or(`company_email_add.eq."${req.session.user.email}",personal_email_add.eq."${req.session.user.email}"`)
                 .single();
 
             res.json({ 

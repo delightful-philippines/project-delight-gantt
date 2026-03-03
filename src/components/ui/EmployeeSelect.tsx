@@ -118,9 +118,9 @@ export function EmployeeSelect({
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                // When selecting, we just want the email 
-                onChange(emp.company_email_add);
-                setQuery(emp.company_email_add);
+                const email = emp.company_email_add || emp.personal_email_add || "";
+                onChange(email);
+                setQuery(email);
                 setIsOpen(false);
               }}
               className="flex flex-col w-full text-left px-3 py-2 text-sm transition-colors border-b border-slate-50 last:border-0 hover:bg-slate-50"
@@ -129,7 +129,7 @@ export function EmployeeSelect({
                  {emp.first_name} {emp.last_name} 
                  {emp.department && <span className="text-slate-400 font-normal ml-2 text-xs">{emp.department}</span>}
               </span>
-              <span className="text-xs text-slate-500">{emp.company_email_add}</span>
+              <span className="text-xs text-slate-500">{emp.company_email_add || emp.personal_email_add}</span>
             </button>
           ))}
         </div>,

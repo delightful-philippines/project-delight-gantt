@@ -30,15 +30,17 @@ router.get('/', requireUser, identifyRole, async (req, res) => {
           .single()
       ]);
 
+      const searchEmail = req.userEmail.toLowerCase().trim();
+
       // If user has global view permission, we don't filter the query!
       if (!userData || !userData.can_view_all_projects) {
         if (employeeData && employeeData.business_unit) {
           // Find projects matching their business unit OR they are the explicit leader
           // OR projects that have NO business unit (Public)
-          query = query.or(`business_unit.eq."${employeeData.business_unit}",lead.eq."${req.userEmail}",business_unit.is.null`);
+          query = query.or(`business_unit.eq."${employeeData.business_unit}",lead.ilike."${searchEmail}",business_unit.is.null`);
         } else {
           // If user has no business unit, they see only what they lead or public projects
-          query = query.or(`lead.eq."${req.userEmail}",business_unit.is.null`);
+          query = query.or(`lead.ilike."${searchEmail}",business_unit.is.null`);
         }
       }
     }

@@ -38,7 +38,8 @@ export interface DBEmployee {
   employee_id: number;
   first_name: string;
   last_name: string;
-  company_email_add: string;
+  company_email_add: string | null;
+  personal_email_add: string | null;
   position: string;
   department: string;
   business_unit?: string;

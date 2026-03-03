@@ -11,8 +11,8 @@ router.get('/me', requireUser, async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
       .from('employees')
-      .select('employee_id, first_name, last_name, company_email_add, position, department, business_unit')
-      .eq('company_email_add', req.userEmail)
+      .select('employee_id, first_name, last_name, company_email_add, personal_email_add, position, department, business_unit')
+      .or(`company_email_add.eq."${req.userEmail}",personal_email_add.eq."${req.userEmail}"`)
       .single();
 
     if (error && error.code === 'PGRST116') {
@@ -35,12 +35,14 @@ router.get('/', requireUser, identifyRole, async (req, res) => {
     
     let query = supabaseAdmin
       .from('employees')
-      .select('employee_id, first_name, last_name, company_email_add, position, department');
+      .select('employee_id, first_name, last_name, company_email_add, personal_email_add, position, department, business_unit');
 
     if (req.query.search) {
-      // search by name or email
-      const searchTerm = req.query.search;
-      query = query.or(`first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,company_email_add.ilike.%${searchTerm}%,nick_name.ilike.%${searchTerm}%`).limit(1000);
+      const searchTerm = req.query.search.trim();
+      
+      // If there's a space, they might be searching for "First Last"
+      // We'll search each part or the whole thing across fields
+      query = query.or(`first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,company_email_add.ilike.%${searchTerm}%,personal_email_add.ilike.%${searchTerm}%,nick_name.ilike.%${searchTerm}%`).limit(1000);
     } else {
       query = query.limit(10000);
     }

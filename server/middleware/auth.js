@@ -112,14 +112,14 @@ export const requireProjectAccess = async (req, res, next) => {
   // Public projects (no business unit) are visible to all authenticated users
   if (!project.business_unit) return next();
 
-  // If they are explicitly the lead, grant access
-  if (project.lead === req.userEmail) return next();
+  // If they are explicitly the lead, grant access (Case-insensitive)
+  if (project.lead?.toLowerCase().trim() === req.userEmail.toLowerCase().trim()) return next();
 
   // Check matching business unit
   const { data: employeeData, error: empError } = await supabaseAdmin
     .from('employees')
     .select('business_unit')
-    .eq('company_email_add', req.userEmail)
+    .or(`company_email_add.eq."${req.userEmail.toLowerCase().trim()}",personal_email_add.eq."${req.userEmail.toLowerCase().trim()}"`)
     .single();
     
   if (!empError && employeeData && employeeData.business_unit === project.business_unit) {
@@ -168,7 +168,7 @@ export const requireProjectOwnership = async (req, res, next) => {
 
   if (error || !project) return res.status(404).json({ error: 'Project not found.' });
 
-  if (project.lead !== req.userEmail) {
+  if (project.lead?.toLowerCase().trim() !== req.userEmail.toLowerCase().trim()) {
     return res.status(403).json({ error: 'Only the project Lead can perform this action.' });
   }
 
