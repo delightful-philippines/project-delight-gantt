@@ -4,37 +4,37 @@ import { supabaseAdmin } from '../db.js';
 
 const router = Router();
 
-// ── GET /api/auth/login ───────────────────────────────────────────
-// Redirect user to Microsoft Login
 router.get('/login', async (req, res) => {
     try {
         const authUrl = await getAuthUrl(req.query.state || '/');
         res.redirect(authUrl);
     } catch (error) {
         console.error('[Auth] Login error:', error);
-        res.status(500).send('Authentication initialized failed');
+        res.status(500).send('Authentication initialization failed');
     }
 });
 
-// ── GET /api/auth/callback ────────────────────────────────────────
-// Handle the redirect from Microsoft
 router.get('/callback', async (req, res) => {
-    // 1. Check for errors returned by Microsoft in the URL
+    // DEBUG: Log request details
+    console.log('[Auth Callback] Request Details:', {
+        protocol: req.protocol,
+        secure: req.secure,
+        hostname: req.hostname,
+        'x-forwarded-proto': req.headers['x-forwarded-proto'],
+        'x-forwarded-host': req.headers['x-forwarded-host'],
+        host: req.headers.host,
+        sessionID: req.sessionID,
+        hasSession: !!req.session
+    });
+
     if (req.query.error) {
-        console.error('[Auth] Microsoft returned an error:', req.query.error_description);
-        return res.status(400).send(`
-            <div style="font-family: sans-serif; padding: 40px; text-align: center;">
-                <h2 style="color: #e11d48;">Authentication Error</h2>
-                <p style="color: #64748b;">${req.query.error_description}</p>
-                <a href="/login" style="color: #2563eb; text-decoration: none; font-weight: bold;">Return to Login</a>
-            </div>
-        `);
+        return res.status(400).send(`Error: ${req.query.error_description}`);
     }
 
     try {
         const response = await acquireTokenByCode(req.query.code);
         
-        // Store user in session
+        // Save user to session
         req.session.user = {
             name: response.account.name,
             email: response.account.username.toLowerCase(),
@@ -42,68 +42,107 @@ router.get('/callback', async (req, res) => {
             tenantId: response.account.tenantId
         };
 
-        // Redirect back to frontend
-        const redirectPath = req.query.state || '/';
-        const frontendBase = process.env.FRONTEND_URL || 'http://localhost:5173';
-        res.redirect(`${frontendBase}${redirectPath}`);
+        console.log('[Auth Callback] User data saved to session:', {
+            email: req.session.user.email,
+            sessionID: req.sessionID
+        });
+
+        // Explicitly save session before redirecting
+        req.session.save((err) => {
+            if (err) {
+                console.error('[Auth Callback] Session save FAILED:', err);
+                return res.status(500).send('Session save failed');
+            }
+            
+            console.log('[Auth Callback] Session saved successfully, redirecting to /');
+            console.log('[Auth Callback] Set-Cookie headers:', res.getHeader('Set-Cookie'));
+            res.redirect('/');
+        });
+
     } catch (error) {
-        console.error('[Auth] Token Exchange Failed!');
-        console.error('Error Name:', error.name);
-        console.error('Error Message:', error.message);
-        if (error.errorMessage) console.error('MSAL Error Message:', error.errorMessage);
-        
-        res.status(500).send(`
-            <div style="font-family: sans-serif; padding: 40px; text-align: center;">
-                <h2 style="color: #e11d48;">Token Exchange Failed</h2>
-                <p style="color: #64748b;">The server could not verify your login with Microsoft.</p>
-                <p style="font-family: monospace; background: #f1f5f9; padding: 10px; border-radius: 4px; display: inline-block;">${error.message}</p>
-                <div style="margin-top: 20px;">
-                    <a href="/login" style="color: #2563eb; text-decoration: none; font-weight: bold;">Try Again</a>
-                </div>
-            </div>
-        `);
+        console.error('[Auth] Token exchange failed:', error);
+        res.status(500).send('Login failed');
     }
 });
 
-// ── GET /api/auth/logout ──────────────────────────────────────────
 router.get('/logout', (req, res) => {
     req.session.destroy(() => {
         res.json({ success: true });
     });
 });
 
-// ── GET /api/auth/session ─────────────────────────────────────────
-// Check current session
+// DEBUG ENDPOINT: Diagnostic information (remove in production)
+router.get('/debug', (req, res) => {
+    res.json({
+        request: {
+            protocol: req.protocol,
+            secure: req.secure,
+            hostname: req.hostname,
+            host: req.headers.host,
+            ip: req.ip,
+            ips: req.ips
+        },
+        headers: {
+            'x-forwarded-proto': req.headers['x-forwarded-proto'],
+            'x-forwarded-host': req.headers['x-forwarded-host'],
+            'x-forwarded-for': req.headers['x-forwarded-for'],
+            'x-real-ip': req.headers['x-real-ip'],
+            'cookie': req.headers.cookie ? 'present (length: ' + req.headers.cookie.length + ')' : 'missing',
+            'user-agent': req.headers['user-agent']
+        },
+        session: {
+            id: req.sessionID,
+            exists: !!req.session,
+            hasUser: !!(req.session && req.session.user),
+            userEmail: req.session?.user?.email,
+            cookie: req.session?.cookie
+        },
+        environment: {
+            NODE_ENV: process.env.NODE_ENV,
+            trustProxy: req.app.get('trust proxy'),
+            FRONTEND_URL: process.env.FRONTEND_URL
+        }
+    });
+});
+
 router.get('/session', async (req, res) => {
+    // DEBUG: Log session check request details
+    console.log('[Auth Session Check] Request Details:', {
+        protocol: req.protocol,
+        secure: req.secure,
+        hostname: req.hostname,
+        'x-forwarded-proto': req.headers['x-forwarded-proto'],
+        host: req.headers.host,
+        cookies: req.headers.cookie,
+        sessionID: req.sessionID,
+        hasSession: !!req.session,
+        hasUser: !!(req.session && req.session.user),
+        userEmail: req.session?.user?.email
+    });
+
     if (req.session && req.session.user) {
+        console.log('[Auth Session Check] ✅ User found in session:', req.session.user.email);
         try {
-            // Enrich with name from employees table if available
             const { data: employee } = await supabaseAdmin
                 .from('employees')
                 .select('first_name, last_name')
                 .eq('company_email_add', req.session.user.email)
                 .single();
 
-            const enrichedUser = {
-                ...req.session.user,
-                first_name: employee?.first_name || null,
-                last_name: employee?.last_name || null,
-            };
-
-            res.json({ user: enrichedUser });
-        } catch (error) {
-            // If employee lookup fails, just return the session user as is
+            res.json({ 
+                user: { 
+                    ...req.session.user, 
+                    first_name: employee?.first_name || null, 
+                    last_name: employee?.last_name || null 
+                } 
+            });
+        } catch {
             res.json({ user: req.session.user });
         }
     } else {
-        // Return 200 but null user to avoid "401 Unauthorized" red errors in console
+        console.log('[Auth Session Check] ❌ No user in session - returning null');
         res.json({ user: null });
     }
-});
-
-// ── GET /api/auth/debug-session ──────────────────────────────────
-router.get('/debug-session', (req, res) => {
-    res.json({ session: req.session });
 });
 
 export default router;

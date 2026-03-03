@@ -24,21 +24,29 @@ export const useAuthStore = create<AuthState>((set) => ({
   isLoading: true,
 
   checkSession: async () => {
+    console.log('[AuthStore] 🔍 Starting session check...');
     set({ isLoading: true });
     try {
       const response = await fetch('/api/auth/session', { credentials: 'include' });
+      console.log('[AuthStore] Session response status:', response.status, response.ok);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('[AuthStore] ✅ Session Data:', data);
+        console.log('[AuthStore] User exists:', !!data.user);
+        console.log('[AuthStore] Setting isAuthenticated to:', !!data.user);
         set({ user: data.user, isAuthenticated: !!data.user, isLoading: false });
+        console.log('[AuthStore] State updated. isAuthenticated:', !!data.user);
       } else {
-        // Not authenticated
+        console.log('[AuthStore] ❌ Response not OK, status:', response.status);
         set({ user: null, isAuthenticated: false, isLoading: false });
       }
     } catch (error) {
-      console.error('[AuthStore] Session check failed:', error);
+      console.error('[AuthStore] ❌ Session check failed with error:', error);
       set({ user: null, isAuthenticated: false, isLoading: false });
     }
   },
+
 
   logout: async () => {
     try {

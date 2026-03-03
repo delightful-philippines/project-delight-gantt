@@ -6,7 +6,6 @@ import { supabaseAdmin } from '../db.js';
 export const requireUser = (req, res, next) => {
   // 1. Check for session (Option B — Secure)
   if (req.session && req.session.user) {
-    console.log('[DEBUG-SESSION] User:', JSON.stringify(req.session.user));
     req.userEmail = req.session.user.email;
     return next();
   }
@@ -57,7 +56,6 @@ export const requireSuperAdmin = async (req, res, next) => {
 
 /**
  * Fetch user record and attach role to req.
- * Auto-promotes hardcoded admins if record is missing or role is wrong.
  */
 export const identifyRole = async (req, res, next) => {
   if (!req.userEmail) return res.status(401).json({ error: 'Authentication required.' });
@@ -75,26 +73,21 @@ export const identifyRole = async (req, res, next) => {
     .single();
 
   if (error || !user) {
-    // Record missing -> If hardcoded admin, use super_admin, else editor
     req.userRole = isHardcodedAdmin ? 'super_admin' : 'editor';
   } else {
-    // Record exists -> If hardcoded admin but role is wrong, use super_admin
     if (isHardcodedAdmin && user.role !== 'super_admin') {
       req.userRole = 'super_admin';
-      // Optionally async update the DB here too
       supabaseAdmin.from('app_users').update({ role: 'super_admin' }).eq('email', email).then();
     } else {
       req.userRole = user.role;
     }
   }
 
-  console.log(`[DEBUG-ROLE] ${email} identified as ${req.userRole}`);
   next();
 };
 
 /**
  * Verify user has access to a specific project.
- * Handles both URL params (:id, :projectId) and query params (?project_id).
  */
 export const requireProjectAccess = async (req, res, next) => {
   const projectId = req.params.id || req.params.projectId || req.query.project_id || req.body.project_id;
@@ -116,35 +109,33 @@ export const requireProjectAccess = async (req, res, next) => {
     return res.status(404).json({ error: 'Project not found.' });
   }
 
-  // If they are explicitly the lead, grant access immediately
-  if (project.lead === req.userEmail) {
+  // Public projects (no business unit) are visible to all authenticated users
+  if (!project.business_unit) return next();
+
+  // If they are explicitly the lead, grant access
+  if (project.lead === req.userEmail) return next();
+
+  // Check matching business unit
+  const { data: employeeData, error: empError } = await supabaseAdmin
+    .from('employees')
+    .select('business_unit')
+    .eq('company_email_add', req.userEmail)
+    .single();
+    
+  if (!empError && employeeData && employeeData.business_unit === project.business_unit) {
     return next();
   }
 
-  // Otherwise, check if their business unit matches the project's business unit
-  if (project.business_unit) {
-    const { data: employeeData, error: empError } = await supabaseAdmin
-      .from('employees')
-      .select('business_unit')
-      .eq('company_email_add', req.userEmail)
-      .single();
-      
-    if (!empError && employeeData && employeeData.business_unit === project.business_unit) {
-      return next();
-    }
-  }
-
-  return res.status(403).json({ error: 'Access denied. You do not belong to the same business unit as this project, nor are you the leader.' });
+  return res.status(403).json({ error: 'Access denied. Business unit mismatch.' });
 };
 
 /**
- * Verify user has access to a specific task (by checking its project).
+ * Verify user has access to a specific task.
  */
 export const requireTaskAccess = async (req, res, next) => {
   const taskId = req.params.id;
   if (!taskId) return res.status(400).json({ error: 'Task ID required.' });
 
-  // Super Admins bypass check
   if (req.userRole === 'super_admin') return next();
 
   const { data: task, error } = await supabaseAdmin
@@ -155,29 +146,18 @@ export const requireTaskAccess = async (req, res, next) => {
 
   if (error || !task) return res.status(404).json({ error: 'Task not found.' });
 
-  const { data: project } = await supabaseAdmin
-    .from('projects')
-    .select('lead')
-    .eq('id', task.project_id)
-    .single();
-
-  if (!project || project.lead !== req.userEmail) {
-    return res.status(403).json({ error: 'Access denied. You do not lead the project this task belongs to.' });
-  }
-
-  next();
+  req.params.projectId = task.project_id;
+  return requireProjectAccess(req, res, next);
 };
 
 /**
- * STRICT ownership check. Only the lead (creator) or Super Admin 
- * can perform the action.
+ * STRICT ownership check.
  */
 export const requireProjectOwnership = async (req, res, next) => {
   const projectId = req.params.id || req.params.projectId || req.query.project_id || req.body.project_id;
   
   if (!projectId) return res.status(400).json({ error: 'project_id is required.' });
 
-  // Super Admins bypass check
   if (req.userRole === 'super_admin') return next();
 
   const { data: project, error } = await supabaseAdmin
@@ -189,7 +169,7 @@ export const requireProjectOwnership = async (req, res, next) => {
   if (error || !project) return res.status(404).json({ error: 'Project not found.' });
 
   if (project.lead !== req.userEmail) {
-    return res.status(403).json({ error: 'Access denied. Only the project creator (Lead) can perform this action.' });
+    return res.status(403).json({ error: 'Only the project Lead can perform this action.' });
   }
 
   next();

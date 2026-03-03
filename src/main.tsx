@@ -27,16 +27,20 @@ function App() {
   const initializeGantt = useGanttStore(s => s.initialize);
 
   useEffect(() => {
+    console.log('[App] 🚀 App mounted, initiating session check...');
     checkSession();
   }, [checkSession]);
 
   useEffect(() => {
+    console.log('[App] Auth state changed:', { isAuthenticated, isLoading });
     if (isAuthenticated) {
+      console.log('[App] ✅ User authenticated, initializing Gantt store...');
       initializeGantt();
     }
   }, [isAuthenticated, initializeGantt]);
 
   if (isLoading) {
+    console.log('[App] ⏳ Still loading, showing spinner...');
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center gap-4">
@@ -47,13 +51,22 @@ function App() {
     );
   }
 
+  console.log('[App] 🎯 Rendering AppRouter with isAuthenticated:', isAuthenticated);
   return <AppRouter />;
 }
 
 // ── Protected Route Wrapper ──────────────────────────────────
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore();
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
+  console.log('[ProtectedRoute] Checking auth status:', isAuthenticated);
+  
+  if (!isAuthenticated) {
+    console.log('[ProtectedRoute] ❌ Not authenticated, redirecting to /login');
+    return <Navigate to="/login" replace />;
+  }
+  
+  console.log('[ProtectedRoute] ✅ Authenticated, rendering protected content');
+  return <>{children}</>;
 }
 
 // ── Application Router ───────────────────────────────────────

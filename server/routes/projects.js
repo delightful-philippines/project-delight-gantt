@@ -7,7 +7,7 @@ const router = Router();
 // ── GET /api/projects ────────────────────────────────────────
 // Returns projects:
 // - Super Admins see all projects
-// - Regular users see projects that match their own business unit
+// - Regular users see projects that match their own business unit OR projects they lead
 router.get('/', requireUser, identifyRole, async (req, res) => {
   try {
     let query = supabaseAdmin
@@ -23,16 +23,13 @@ router.get('/', requireUser, identifyRole, async (req, res) => {
         .eq('company_email_add', req.userEmail)
         .single();
         
-      if (empError && empError.code !== 'PGRST116') { // PGRST116 is not found
-        console.error("Error fetching employee info:", empError);
-        // Fallback to only looking at projects they lead if they aren't found in the employee table
-        query = query.eq('lead', req.userEmail);
-      } else if (employeeData && employeeData.business_unit) {
+      if (!empError && employeeData && employeeData.business_unit) {
         // Find projects matching their business unit OR they are the explicit leader
-        query = query.or(`business_unit.eq."${employeeData.business_unit}",lead.eq."${req.userEmail}"`);
+        // OR projects that have NO business unit (Public)
+        query = query.or(`business_unit.eq."${employeeData.business_unit}",lead.eq."${req.userEmail}",business_unit.is.null`);
       } else {
-        // Missing business unit info — fallback to ones they explicitly lead
-        query = query.eq('lead', req.userEmail);
+        // If user has no business unit, they see only what they lead or public projects
+        query = query.or(`lead.eq."${req.userEmail}",business_unit.is.null`);
       }
     }
 
@@ -44,6 +41,7 @@ router.get('/', requireUser, identifyRole, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 // ── GET /api/projects/:id ────────────────────────────────────
 router.get('/:id', requireUser, identifyRole, requireProjectAccess, async (req, res) => {
