@@ -62,7 +62,7 @@ export function ProjectsPage() {
     if (userRole === 'super_admin' || userRole === 'editor') {
       api.employees.search('').then(data => {
         const mappedUsers = data.map((e: any) => ({
-          email: e.company_email_add,
+          email: (e.company_email_add || e.personal_email_add || `id:${e.employee_id}`).toLowerCase().trim(),
           first_name: e.first_name,
           last_name: e.last_name,
           role: 'viewer' as const,
@@ -73,6 +73,30 @@ export function ProjectsPage() {
       }).catch(console.error);
     }
   }, [userRole]);
+
+  const handleSearchUsers = async (term: string) => {
+    if (!term || term.length < 2) return;
+    try {
+      const data = await api.employees.search(term);
+      const mappedResults: DBUser[] = data.map((e: DBEmployee) => ({
+        email: (e.company_email_add || e.personal_email_add || `id:${e.employee_id}`).toLowerCase().trim(),
+        first_name: e.first_name,
+        last_name: e.last_name,
+        role: 'viewer' as const,
+        created_at: '',
+        updated_at: '',
+        can_view_all_projects: false
+      }));
+      
+      setUsers(prev => {
+        const existingEmails = new Set(prev.map(u => u.email));
+        const newUsers = mappedResults.filter(u => !existingEmails.has(u.email));
+        return [...prev, ...newUsers];
+      });
+    } catch (err) {
+      console.error("Failed to search users:", err);
+    }
+  };
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -345,6 +369,7 @@ export function ProjectsPage() {
                               });
                               setEditingLeadId(null);
                             }}
+                            onSearch={handleSearchUsers}
                             className="w-full text-left"
                             placeholder="Select lead..."
                           />
@@ -433,6 +458,7 @@ export function ProjectsPage() {
                   users={users}
                   value={draft.lead || ''} 
                   onChange={val => setDraft({...draft, lead: val})}
+                  onSearch={handleSearchUsers}
                   placeholder="Select a Lead"
                 />
               </div>

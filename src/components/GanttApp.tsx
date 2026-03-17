@@ -13,6 +13,7 @@ import { UserAvatar } from "./ui/UserAvatar";
 import { UserSelect } from "./ui/UserSelect";
 import { SupabaseStatus, DbStatusButton } from "./SupabaseStatus";
 import { ConfirmDialog, Toast } from "./ui/Dialog";
+import { id } from "../utils/ids";
 
 type ModalState =
   | { type: "none" }
@@ -26,7 +27,8 @@ type ModalState =
   | { type: "edit_task"; taskId: string }
   | { type: "delete_task"; taskId: string }
   | { type: "delete_project"; projectId: string }
-  | { type: "baselines" };
+  | { type: "baselines" }
+  | { type: "ai_update" };
 
 function FieldLabel({ children }: { children: string }): JSX.Element {
   return <span className="text-xs font-medium uppercase tracking-wider text-slate-400">{children}</span>;
@@ -209,7 +211,7 @@ function TaskForm({
                 const t = (availableTasks || []).find(x => x.id === depId);
                 return (
                   <div key={depId} className="flex items-center gap-1.5 bg-blue-50 border border-blue-100 px-2 py-1 rounded-lg text-xs font-medium text-blue-700">
-                    <span className="truncate max-w-[120px]">{t?.title || "Unknown"}</span>
+                    <span className="truncate max-w-30">{t?.title || "Unknown"}</span>
                     <button 
                       onClick={() => sync({ ...local, dependencies: local.dependencies.filter(id => id !== depId) })}
                       className="hover:text-blue-900"
@@ -260,18 +262,20 @@ function ModalLayout({
   onCancel,
   onConfirm,
   confirmLabel,
-  confirmVariant = "primary"
+  confirmVariant = "primary",
+  confirmDisabled = false
 }: {
   title: string;
   children: JSX.Element | JSX.Element[];
   onCancel: () => void;
   onConfirm: () => void;
-  confirmLabel: string;
+  confirmLabel: string | JSX.Element;
   confirmVariant?: "primary" | "danger";
+  confirmDisabled?: boolean;
 }): JSX.Element {
   return (
-    <div className="fixed inset-0 z-[9999] grid place-items-center bg-slate-900/40 backdrop-blur-sm animate-fade-in px-4">
-      <div className="animate-enter w-full max-w-xl flex flex-col rounded-[1.5rem] border border-slate-200 bg-white shadow-2xl overflow-hidden max-h-[90vh]">
+    <div className="fixed inset-0 z-9999 grid place-items-center bg-slate-900/40 backdrop-blur-sm animate-fade-in px-4">
+      <div className="animate-enter w-full max-w-xl flex flex-col rounded-3xl border border-slate-200 bg-white shadow-2xl overflow-hidden max-h-[90vh]">
         {/* Sticky Header */}
         <div className="px-4 sm:px-8 pt-6 sm:pt-8 pb-4 flex items-center justify-between shrink-0">
           <h3 className="text-lg sm:text-xl font-medium tracking-tight text-slate-800">{title}</h3>
@@ -295,8 +299,9 @@ function ModalLayout({
             Cancel
           </button>
           <button 
-            className={`btn-premium px-8 sm:px-10 ${confirmVariant === "danger" ? "btn-danger shadow-red-200" : "btn-primary shadow-blue-200"} shadow-xl`} 
+            className={`btn-premium px-8 sm:px-10 ${confirmVariant === "danger" ? "btn-danger shadow-red-200" : "btn-primary shadow-blue-200"} shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 hidden sm:flex items-center justify-center`} 
             onClick={onConfirm}
+            disabled={confirmDisabled}
           >
             {confirmLabel}
           </button>
@@ -384,6 +389,8 @@ export function GanttApp(): JSX.Element {
   const [showDbStatus, setShowDbStatus] = useState(false);
   const [employeeInfo, setEmployeeInfo] = useState<DBEmployee | null>(null);
   const [collapsedTaskIds, setCollapsedTaskIds] = useState<Set<string>>(new Set());
+  const [aiContext, setAiContext] = useState("");
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
 
   const projectViewers = useMemo(() => {
     if (!registeredUsers.length) return [];
@@ -555,7 +562,7 @@ export function GanttApp(): JSX.Element {
           ⚠️ {syncError}
         </div>
       )}
-      <aside className="hidden lg:flex fixed inset-y-0 left-0 z-[200] w-[72px] flex-col items-center border-r border-slate-200/60 bg-white/80 backdrop-blur-3xl py-6 shadow-[4px_0_24px_-10px_rgba(0,0,0,0.05)]">
+      <aside className="hidden lg:flex fixed inset-y-0 left-0 z-200 w-18 flex-col items-center border-r border-slate-200/60 bg-white/80 backdrop-blur-3xl py-6 shadow-[4px_0_24px_-10px_rgba(0,0,0,0.05)]">
         <div className="mb-8 flex h-10 w-10 items-center justify-center text-blue-600">
           <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
@@ -579,7 +586,7 @@ export function GanttApp(): JSX.Element {
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 {item.icon}
               </svg>
-              <span className="absolute left-full ml-3 hidden group-hover:block whitespace-nowrap rounded-lg bg-slate-800 px-2 py-1 text-xs font-medium text-white uppercase tracking-wider shadow-xl z-[300]">
+              <span className="absolute left-full ml-3 hidden group-hover:block whitespace-nowrap rounded-lg bg-slate-800 px-2 py-1 text-xs font-medium text-white uppercase tracking-wider shadow-xl z-300">
                 {item.label}
               </span>
             </button>
@@ -605,14 +612,14 @@ export function GanttApp(): JSX.Element {
               <polyline points="16 17 21 12 16 7" />
               <line x1="21" y1="12" x2="9" y2="12" />
             </svg>
-            <span className="absolute left-full ml-3 hidden group-hover:block whitespace-nowrap rounded-lg bg-slate-800 px-2 py-1 text-[10px] font-bold text-white uppercase tracking-wider shadow-xl z-[300]">
+            <span className="absolute left-full ml-3 hidden group-hover:block whitespace-nowrap rounded-lg bg-slate-800 px-2 py-1 text-[10px] font-bold text-white uppercase tracking-wider shadow-xl z-300">
               Sign Out
             </span>
           </button>
         </div>
       </aside>
 
-      <main className="flex min-w-0 flex-1 flex-col pl-0 lg:pl-[72px] pb-16 lg:pb-0 relative bg-[#f8fafc]">
+      <main className="flex min-w-0 flex-1 flex-col pl-0 lg:pl-18 pb-16 lg:pb-0 relative bg-[#f8fafc]">
         {/* ── Background Patterns (Gantt-inspired, synced with Login) ── */}
         <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none opacity-[0.012]">
           {/* Vertical Grid Lines */}
@@ -625,14 +632,14 @@ export function GanttApp(): JSX.Element {
           {/* Faded Horizontal Task Bars */}
           <div className="absolute inset-0 py-24 flex flex-col gap-16">
              <div className="h-10 w-64 bg-slate-900 rounded-full ml-[5%] opacity-40" />
-             <div className="h-10 w-[400px] bg-slate-900 rounded-full ml-[45%] opacity-20" />
+             <div className="h-10 w-100 bg-slate-900 rounded-full ml-[45%] opacity-20" />
              <div className="h-10 w-48 bg-slate-900 rounded-full ml-[25%] opacity-30" />
              <div className="h-10 w-80 bg-slate-900 rounded-full ml-[70%] opacity-15" />
-             <div className="h-10 w-[600px] bg-slate-900 rounded-full ml-[10%] opacity-25" />
+             <div className="h-10 w-150 bg-slate-900 rounded-full ml-[10%] opacity-25" />
              <div className="h-10 w-96 bg-slate-900 rounded-full ml-[35%] opacity-35" />
           </div>
         </div>
-        <header className="z-[150] sticky top-0 border-b border-slate-200/60 bg-white/70 backdrop-blur-2xl px-4 lg:px-6 py-4 shadow-[0_4px_24px_-10px_rgba(0,0,0,0.05)]">
+        <header className="z-150 sticky top-0 border-b border-slate-200/60 bg-white/70 backdrop-blur-2xl px-4 lg:px-6 py-4 shadow-[0_4px_24px_-10px_rgba(0,0,0,0.05)]">
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2 lg:gap-3 overflow-hidden">
               <button 
@@ -742,12 +749,24 @@ export function GanttApp(): JSX.Element {
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                   <span className="hidden md:inline">Export</span>
                 </button>
+                {userRole !== 'viewer' && activeSheet && (
+                  <button 
+                    className="btn-premium bg-linear-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 hover:to-purple-600 shadow-purple-200 h-9 px-3 sm:px-4 text-xs font-medium flex items-center gap-2 border-0"
+                    onClick={() => {
+                      setAiContext("");
+                      setModal({ type: "ai_update" });
+                    }}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                    <span className="hidden md:inline font-bold">AI Support</span>
+                  </button>
+                )}
 
                 {/* Current User Profile at the very right */}
                 <div className="hidden sm:flex items-center gap-3 border-l border-slate-200 pl-4 ml-2">
                   <div className="flex flex-col text-right leading-tight">
                     <span className="text-xs font-semibold text-slate-800 leading-none">{user?.name || 'User'}</span>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.1em] mt-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
                       {userRole?.replace('_', ' ')}
                     </span>
                   </div>
@@ -816,13 +835,13 @@ export function GanttApp(): JSX.Element {
 
                     <div className="h-6 w-px bg-slate-200 mx-1" />
                     <CustomSelect
-                      className="min-w-[200px]"
+                      className="min-w-50"
                       options={projectOptions}
                       value={activeSheet.project.id}
                       onChange={(val) => navigate(`/project/${val}`)}
                     />
                     <CustomSelect
-                      className="min-w-[140px]"
+                      className="min-w-35"
                       options={zoomOptions}
                       value={zoom}
                       onChange={(val) => setZoom(val as any)}
@@ -984,7 +1003,7 @@ export function GanttApp(): JSX.Element {
               <button
                 key={p.project.id}
                 onClick={() => navigate(`/project/${p.project.id}`)}
-                className={`group h-full px-5 flex items-center gap-2 text-xs font-medium transition-all relative border-r border-slate-50 min-w-[120px] max-w-[200px] ${
+                className={`group h-full px-5 flex items-center gap-2 text-xs font-medium transition-all relative border-r border-slate-50 min-w-30 max-w-50 ${
                   isActive 
                     ? "bg-slate-50 text-blue-600 shadow-[inset_0_-2px_0_#3b82f6]" 
                     : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
@@ -996,7 +1015,7 @@ export function GanttApp(): JSX.Element {
                   {p.project.progress ?? 0}%
                 </span>
                 {isActive && (
-                  <div className="absolute top-0 left-0 right-0 h-[2px] bg-blue-500 opacity-20" />
+                  <div className="absolute top-0 left-0 right-0 h-0.5 bg-blue-500 opacity-20" />
                 )}
               </button>
             );
@@ -1294,7 +1313,7 @@ export function GanttApp(): JSX.Element {
             />
             {editingTask.is_summary && (
               <div className="mt-4 flex gap-3 rounded-xl bg-amber-50 p-4 text-amber-700">
-                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 <p className="text-xs font-medium leading-relaxed">
                   Note: Summary dates and progress are auto-calculated from child tasks.
                 </p>
@@ -1420,8 +1439,108 @@ export function GanttApp(): JSX.Element {
         </ModalLayout>
       )}
 
+      {modal.type === "ai_update" && activeSheet && (
+        <ModalLayout
+          title="AI Auto-Update"
+          confirmLabel={
+               isGeneratingAI 
+                  ? <div className="flex items-center gap-2"><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin shrink-0" /> <span className="whitespace-nowrap">Generating...</span></div>
+                  : "Generate Updates"
+          }
+          confirmDisabled={isGeneratingAI}
+          onCancel={() => { if (!isGeneratingAI) setModal({ type: "none" }); }}
+          onConfirm={async () => {
+             if (!aiContext.trim() || isGeneratingAI) return;
+             setIsGeneratingAI(true);
+             try {
+                const res = await api.ai.generateUpdate({
+                   project: { id: activeSheet.project.id, name: activeSheet.project.name, start_date: activeSheet.project.start_date },
+                   currentTasks: Object.values(activeSheet.tasksById),
+                   context: aiContext,
+                });
+                
+                let count = 0;
+                 const tempIdToRealId = new Map<string, string>();
+
+                 for (const op of res.operations) {
+                    if (op.type === "update_task" && op.taskId && activeSheet.tasksById[op.taskId]) {
+                       const t = activeSheet.tasksById[op.taskId];
+                       const updates: TaskDraft = {
+                          title: op.changes.title ?? t.title,
+                          start_date: op.changes.start_date ?? t.start_date,
+                          end_date: op.changes.end_date ?? t.end_date,
+                          progress: op.changes.progress ?? t.progress,
+                          assignee: op.changes.assignee ?? t.assignee,
+                          bg_color: t.bg_color,
+                          text_color: t.text_color,
+                          dependencies: t.dependencies,
+                          is_milestone: t.is_milestone
+                       };
+                       
+                       editTask(op.taskId, updates);
+                       count++;
+                    } else if (op.type === "create_task" && op.task) {
+                       const realId = id("task");
+                       if (op.tempId) {
+                          tempIdToRealId.set(op.tempId, realId);
+                       }
+
+                       // Parent ID can be a real ID or a temp ID from this batch
+                       const resolvedParentId = (op.parentId && tempIdToRealId.has(op.parentId)) 
+                          ? tempIdToRealId.get(op.parentId)! 
+                          : (op.parentId || null);
+
+                       addTask({
+                          id: realId,
+                          ...blankTaskDraft(activeSheet.project.start_date),
+                          title: op.task.title || "New Task",
+                          start_date: op.task.start_date || activeSheet.project.start_date,
+                          end_date: op.task.end_date || activeSheet.project.end_date,
+                          progress: op.task.progress || 0,
+                          assignee: op.task.assignee || ""
+                       }, resolvedParentId);
+                       count++;
+                    }
+                 }
+                 showToast("AI Update Complete", `Applied ${count} operations based on your context.`, "success");
+                setModal({ type: "none" });
+             } catch (err: any) {
+                console.error("AI Error:", err);
+                showToast("AI Update Failed", err.message || "Failed to generate updates. Make sure GEMINI_API_KEY is set.", "danger");
+             } finally {
+                setIsGeneratingAI(false);
+             }
+          }}
+        >
+          <div className="grid gap-6">
+            <div className="rounded-xl bg-purple-50 p-4 border border-purple-100 flex gap-4 items-start">
+               <div className="bg-linear-to-br from-indigo-500 to-purple-500 w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-purple-200">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+               </div>
+               <div>
+                 <h4 className="text-sm font-bold text-purple-900 mb-1">AI Assistant is ready</h4>
+                 <p className="text-xs text-purple-700 leading-relaxed">
+                   Paste meeting notes, chat logs, email threads, or daily progress updates below. The AI will analyze the text and automatically generate tasks, update progress percentages, and adjust schedules accordingly.
+                 </p>
+               </div>
+            </div>
+            <label className="grid gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Project Context & Notes</span>
+              <textarea
+                className="input-premium text-sm p-4 h-48 resize-y focus:border-purple-400 focus:ring-purple-100"
+                placeholder="E.g. We met today and decided to launch the frontend next Friday. Jonald finished 80% of the API. Add a new task for security review..."
+                value={aiContext}
+                onChange={(e) => setAiContext(e.target.value)}
+                autoFocus
+                disabled={isGeneratingAI}
+              />
+            </label>
+          </div>
+        </ModalLayout>
+      )}
+
       {/* Mobile Bottom Navigation */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 h-16 bg-white border-t border-slate-200 flex items-center justify-around z-[200] px-4 shadow-lg shadow-black/5">
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 h-16 bg-white border-t border-slate-200 flex items-center justify-around z-200 px-4 shadow-lg shadow-black/5">
         {[
           { id: "G", label: "Gantt", onClick: () => setActiveTab("Gantt"), icon: <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />, active: activeTab === "Gantt" },
           { id: "S", label: "Progress", onClick: () => setActiveTab("Progress"), icon: <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />, active: activeTab === "Progress" },
@@ -1446,7 +1565,7 @@ export function GanttApp(): JSX.Element {
 
       {/* Mobile Actions Drawer */}
       {isMobileMenuOpen && activeSheet && (
-        <div className="fixed inset-0 z-[300] lg:hidden">
+        <div className="fixed inset-0 z-300 lg:hidden">
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm animate-fade-in" onClick={() => setIsMobileMenuOpen(false)} />
           <div className="absolute inset-x-0 inset-y-0 w-full bg-white shadow-2xl animate-enter flex flex-col overflow-hidden">
             <div className="px-6 py-6 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white z-10">

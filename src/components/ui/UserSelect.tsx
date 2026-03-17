@@ -74,7 +74,7 @@ export function UserSelect({
   }, []);
 
   const getUserDisplayName = (user: DBUser) => {
-    let displayName = user.email;
+    let displayName = user.email || "Unknown User";
     if (user.first_name && user.last_name) displayName = `${user.first_name} ${user.last_name}`;
     else if (user.first_name) displayName = user.first_name;
     
@@ -89,13 +89,16 @@ export function UserSelect({
   };
 
   const filteredUsers = users.filter((u) => {
+    if (!searchTerm || searchTerm.trim() === "") return true;
+    
     const searchParts = searchTerm.toLowerCase().trim().split(/\s+/).filter(Boolean);
-    if (!searchParts.length) return true;
+    if (searchParts.length === 0) return true;
     
-    const fullName = `${u.first_name || ""} ${u.last_name || ""}`.toLowerCase();
-    const email = u.email.toLowerCase();
+    const first = (u.first_name || "").toLowerCase();
+    const last = (u.last_name || "").toLowerCase();
+    const fullName = `${first} ${last}`.trim();
+    const email = (u.email || "").toLowerCase();
     
-    // Check if every part of the search term exists somewhere in either the full name or the email
     return searchParts.every(part => fullName.includes(part) || email.includes(part));
   });
 

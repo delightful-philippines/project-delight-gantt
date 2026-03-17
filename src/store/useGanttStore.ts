@@ -169,7 +169,7 @@ function defaultTask(
   level: number
 ): Task {
   return {
-    id: id("task"),
+    id: draft.id || id("task"),
     project_id: projectId,
     parent_id: parentId,
     title: draft.title,

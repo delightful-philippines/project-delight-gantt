@@ -16,6 +16,7 @@ import baselinesRouter from './routes/baselines.js';
 import usersRouter from './routes/users.js';
 import employeesRouter from './routes/employees.js';
 import authRouter from './routes/auth.js';
+import aiRouter from './routes/ai.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -76,6 +77,7 @@ app.use('/api/baselines', baselinesRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/employees', employeesRouter);
 app.use('/api/auth', authRouter);
+app.use('/api/ai', aiRouter);
 
 // Health check
 app.get('/api/health', (_req, res) => {

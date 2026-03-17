@@ -50,6 +50,7 @@ export interface ProjectSheet {
 export type ZoomLevel = "day" | "week" | "month";
 
 export interface TaskDraft {
+  id?: string;
   title: string;
   start_date: ISODateString;
   end_date: ISODateString;

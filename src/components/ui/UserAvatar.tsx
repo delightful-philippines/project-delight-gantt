@@ -13,9 +13,7 @@ interface UserAvatarProps {
 export function UserAvatar({ email, name, size = 'md', className = '', onClick }: UserAvatarProps) {
   const identifier = name || email || 'User';
   
-  const photoUrl = email 
-    ? `https://unavatar.io/microsoft/${encodeURIComponent(email)}?fallback=false`
-    : null;
+  const photoUrl = null;
 
   const sizeMap = {
     xs: 'h-5 w-5',

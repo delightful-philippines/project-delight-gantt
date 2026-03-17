@@ -183,6 +183,18 @@ export const api = {
     delete: (id: number) =>
       req<void>(`/baselines/${id}`, { method: 'DELETE' }),
   },
+
+  ai: {
+    generateUpdate: (data: {
+      project: Pick<DBProject, 'name' | 'start_date' | 'id'>;
+      currentTasks: any[];
+      context: string;
+    }) =>
+      req<{ operations: any[] }>('/ai/generate_update', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+  },
 };
 
 export default api;

@@ -39,12 +39,20 @@ router.get('/', requireUser, identifyRole, async (req, res) => {
 
     if (req.query.search) {
       const searchTerm = req.query.search.trim();
-      
-      // If there's a space, they might be searching for "First Last"
-      // We'll search each part or the whole thing across fields
-      query = query.or(`first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,company_email_add.ilike.%${searchTerm}%,personal_email_add.ilike.%${searchTerm}%,nick_name.ilike.%${searchTerm}%`).limit(1000);
+      const searchParts = searchTerm.split(/\s+/).filter(Boolean);
+
+      // Search each part individually so that "Jonald Penpillo" matches "Jonald" and "Penpillo"
+      // We'll require ALL parts to match SOME field (first, last, email) for it to be a match
+      if (searchParts.length > 0) {
+          
+          searchParts.forEach(part => {
+             const likePart = `%${part}%`;
+             query = query.or(`first_name.ilike.${likePart},last_name.ilike.${likePart},company_email_add.ilike.${likePart},personal_email_add.ilike.${likePart},nick_name.ilike.${likePart}`);
+          });
+          query = query.limit(100);
+      }
     } else {
-      query = query.limit(10000);
+      query = query.limit(200);
     }
 
     const { data, error } = await query;
