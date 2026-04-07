@@ -153,8 +153,8 @@ export function WorkspaceTeamProgress({ projects, systemUsers }: Props) {
       a.click();
       URL.revokeObjectURL(url);
       setPmsTarget(null);
-    } catch (err: any) {
-      setPmsError(err.message || 'Generation failed.');
+    } catch (err: unknown) {
+      setPmsError(err instanceof Error ? err.message : 'Generation failed.');
     } finally {
       setPmsLoading(false);
     }
@@ -302,7 +302,8 @@ export function WorkspaceTeamProgress({ projects, systemUsers }: Props) {
               <h3 className="text-base font-semibold text-slate-800">Generate PMS Report</h3>
               <button
                 onClick={() => { if (!pmsLoading) setPmsTarget(null); }}
-                className="h-7 w-7 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100"
+                disabled={pmsLoading}
+                className="h-7 w-7 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
