@@ -10,6 +10,11 @@ const BASE = '/api';
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const devUserEmail =
+    typeof window !== 'undefined' ? window.sessionStorage.getItem('user_email') : null;
+  if (!import.meta.env.PROD && devUserEmail) {
+    headers['x-user-email'] = devUserEmail;
+  }
 
   const res = await fetch(`${BASE}${path}`, {
     ...init,
@@ -29,6 +34,12 @@ export interface DBUser {
   role: 'super_admin' | 'editor' | 'viewer';
   first_name?: string | null;
   last_name?: string | null;
+  employee_id?: number | null;
+  company_email_add?: string | null;
+  personal_email_add?: string | null;
+  position?: string | null;
+  department?: string | null;
+  business_unit?: string | null;
   can_view_all_projects?: boolean;
   created_at: string;
   updated_at: string;
@@ -109,8 +120,10 @@ export const api = {
   employees: {
     me: () =>
       req<DBEmployee | null>('/employees/me'),
-    search: (query: string) => 
+    search: (query: string) =>
       req<DBEmployee[]>(`/employees?search=${encodeURIComponent(query)}`),
+    getById: (employeeId: number) =>
+      req<DBEmployee[]>(`/employees?employee_id=${employeeId}`),
   },
 
   projects: {
@@ -194,6 +207,34 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(data),
       }),
+
+    generatePms: async (data: {
+      employeeEmail: string;
+      employeeId?: number | null;
+      employeeName: string;
+      employeePosition?: string | null;
+      employeeBusinessUnit?: string | null;
+      year: number;
+      quarter: 1 | 2 | 3 | 4;
+    }): Promise<Blob> => {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const devUserEmail =
+        typeof window !== 'undefined' ? window.sessionStorage.getItem('user_email') : null;
+      if (!import.meta.env.PROD && devUserEmail) headers['x-user-email'] = devUserEmail;
+
+      const res = await fetch(`${BASE}/ai/generate_pms`, {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+        body: JSON.stringify(data),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error((body as { error?: string }).error ?? `HTTP ${res.status}`);
+      }
+      return res.blob();
+    },
   },
 };
 
