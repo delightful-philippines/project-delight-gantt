@@ -145,12 +145,13 @@ router.post('/generate_pms', requireUser, async (req, res) => {
     const quarterLabel = `${months[0]} 01 - ${months[2]} ${end.getDate()}, ${year}`;
 
     // ── Fetch all projects and tasks ─────────────────────────
-    const { data: allProjects, error: projErr } = await supabaseAdmin.from('projects').select('*');
+    const { data: allProjects, error: projErr } = await supabaseAdmin.from('projects').select('*').limit(10000);
     if (projErr) return res.status(500).json({ error: projErr.message });
 
     const { data: allTasks, error: taskErr } = await supabaseAdmin
       .from('tasks')
-      .select('id, project_id, title, start_date, end_date, duration, progress, assignee, is_summary, parent_id');
+      .select('id, project_id, title, start_date, end_date, duration, progress, assignee, is_summary, parent_id')
+      .limit(10000);
     if (taskErr) return res.status(500).json({ error: taskErr.message });
 
     // ── Identify lead projects ───────────────────────────────
@@ -289,10 +290,17 @@ ${JSON.stringify(taskInput, null, 2)}`;
         });
       }
 
+      const monthRows = pmsRows.filter(r => r.month === m);
+      const rawMonthTotal = monthRows.reduce((sum, r) => sum + r.mPercent * r.goalWeight, 0);
       monthSummary[m] = {
-        finalScore: parseFloat(monthTotal.toFixed(4)),
-        rating: scoreToRating(monthTotal),
+        finalScore: parseFloat(rawMonthTotal.toFixed(4)),
+        rating: scoreToRating(rawMonthTotal),
       };
+    }
+
+    // ── Guard: ensure AI produced rows ───────────────────────
+    if (pmsRows.length === 0) {
+      return res.status(500).json({ error: 'AI returned no matching PMS rows. Please try again.' });
     }
 
     // ── Build Excel ──────────────────────────────────────────
