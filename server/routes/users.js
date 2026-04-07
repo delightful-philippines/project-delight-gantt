@@ -60,14 +60,20 @@ router.get('/me', requireUser, async (req, res) => {
     // 3. Fetch employee details separately
     const { data: employee } = await supabaseAdmin
       .from('employees')
-      .select('first_name, last_name')
+      .select('employee_id, first_name, last_name, company_email_add, personal_email_add, position, department, business_unit')
       .or(`company_email_add.eq."${email}",personal_email_add.eq."${email}"`)
       .maybeSingle();
 
     return res.json({
       ...user,
       first_name: employee?.first_name || null,
-      last_name: employee?.last_name || null
+      last_name: employee?.last_name || null,
+      employee_id: employee?.employee_id || null,
+      company_email_add: employee?.company_email_add || null,
+      personal_email_add: employee?.personal_email_add || null,
+      position: employee?.position || null,
+      department: employee?.department || null,
+      business_unit: employee?.business_unit || null,
     });
   } catch (err) {
     console.error('[me] Error:', err);
@@ -91,11 +97,14 @@ router.get('/', requireUser, requireSuperAdmin, async (_req, res) => {
     // 2. Fetch all employees to join in memory (more efficient than many small queries)
     const { data: employees } = await supabaseAdmin
       .from('employees')
-      .select('first_name, last_name, company_email_add');
+      .select('employee_id, first_name, last_name, company_email_add, personal_email_add, position, department, business_unit');
 
     const employeeMap = new Map();
     employees?.forEach(e => {
-      employeeMap.set(e.company_email_add?.toLowerCase().trim(), e);
+      const company = e.company_email_add?.toLowerCase().trim();
+      const personal = e.personal_email_add?.toLowerCase().trim();
+      if (company) employeeMap.set(company, e);
+      if (personal) employeeMap.set(personal, e);
     });
 
     // 3. Map names to users
@@ -104,7 +113,13 @@ router.get('/', requireUser, requireSuperAdmin, async (_req, res) => {
       return {
         ...user,
         first_name: emp?.first_name || null,
-        last_name: emp?.last_name || null
+        last_name: emp?.last_name || null,
+        employee_id: emp?.employee_id || null,
+        company_email_add: emp?.company_email_add || null,
+        personal_email_add: emp?.personal_email_add || null,
+        position: emp?.position || null,
+        department: emp?.department || null,
+        business_unit: emp?.business_unit || null,
       };
     });
 

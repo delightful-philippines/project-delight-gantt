@@ -136,7 +136,7 @@ export function TeamManagement() {
                           <p className="text-sm font-medium text-slate-900 truncate tracking-tight mb-1">{u.email}</p>
                           <div className="flex items-center gap-3">
                              <span className={`inline-flex px-2 py-0.5 rounded-lg text-xs font-medium uppercase tracking-widest leading-none border shadow-sm ${
-                               u.role === 'super_admin' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 
+                               u.role === 'super_admin' ? 'bg-blue-50 text-blue-700 border-blue-100' :
                                u.role === 'editor' ? 'bg-blue-50 text-blue-700 border-blue-100' : 
                                'bg-slate-50 text-slate-600 border-slate-100'
                              }`}>
@@ -215,7 +215,7 @@ export function TeamManagement() {
                 }}
               >
                 <div className="space-y-2.5">
-                  <label className="text-xs font-medium text-slate-400 uppercase tracking-[0.1em] px-1 blur-[0.2px]">Identity Search</label>
+                  <label className="text-xs font-medium text-slate-400 uppercase tracking-widest px-1 blur-[0.2px]">Identity Search</label>
                   <EmployeeSelect 
                     value={inviteEmail} 
                     onChange={setInviteEmail} 
@@ -224,7 +224,7 @@ export function TeamManagement() {
                   />
                 </div>
                 <div className="space-y-2.5">
-                  <label className="text-xs font-medium text-slate-400 uppercase tracking-[0.1em] px-1 blur-[0.2px]">Permission Tier</label>
+                  <label className="text-xs font-medium text-slate-400 uppercase tracking-widest px-1 blur-[0.2px]">Permission Tier</label>
                   <CustomSelect 
                     options={roleOptions}
                     value={inviteRole}
@@ -247,7 +247,7 @@ export function TeamManagement() {
                <div className="grid grid-cols-2 gap-4">
                  {[
                    { label: 'Total Sync', value: stats.total, color: 'text-slate-900' },
-                   { label: 'Admin Root', value: stats.admins, color: 'text-indigo-600' },
+                   { label: 'Admin Root', value: stats.admins, color: 'text-blue-600' },
                    { label: 'Core Editor', value: stats.editors, color: 'text-blue-600' },
                    { label: 'Undefined', value: stats.others, color: 'text-slate-400' }
                  ].map((stat, idx) => (
@@ -271,8 +271,8 @@ export function TeamManagement() {
                     { 
                       label: 'System Admin', 
                       desc: 'Root-level infrastructure control. Full authority over user provisioning and environment variables.', 
-                      color: 'bg-indigo-600', 
-                      shadow: 'shadow-indigo-500/20' 
+                      color: 'bg-blue-600',
+                      shadow: 'shadow-blue-500/20'
                     },
                     { 
                       label: 'Project Editor', 

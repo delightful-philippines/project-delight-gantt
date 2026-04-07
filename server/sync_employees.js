@@ -16,12 +16,17 @@ async function syncEmployees() {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     
-    const employees = await response.json();
-    console.log(`Fetched ${employees.length} employees from API.`);
-    
+    const raw = await response.json();
+    console.log('API response type:', typeof raw);
+    console.log('API response keys (if object):', Array.isArray(raw) ? '(array)' : Object.keys(raw));
+    console.log('API response sample:', JSON.stringify(raw).slice(0, 500));
+
+    const employees = Array.isArray(raw) ? raw : (raw.data ?? raw.employees ?? raw.result ?? raw.Data ?? raw.Employees ?? null);
+
     if (!Array.isArray(employees)) {
-      throw new Error("Expected an array of employees from the API.");
+      throw new Error(`Expected an array of employees from the API. Got: ${JSON.stringify(raw).slice(0, 200)}`);
     }
+    console.log(`Fetched ${employees.length} employees from API.`);
     
     // Map API data to our DB schema
     const formattedEmployees = employees

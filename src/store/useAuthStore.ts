@@ -35,14 +35,22 @@ export const useAuthStore = create<AuthState>((set) => ({
         console.log('[AuthStore] ✅ Session Data:', data);
         console.log('[AuthStore] User exists:', !!data.user);
         console.log('[AuthStore] Setting isAuthenticated to:', !!data.user);
+        const normalizedEmail = data?.user?.email ? String(data.user.email).toLowerCase().trim() : '';
+        if (normalizedEmail) {
+          window.sessionStorage.setItem('user_email', normalizedEmail);
+        } else {
+          window.sessionStorage.removeItem('user_email');
+        }
         set({ user: data.user, isAuthenticated: !!data.user, isLoading: false });
         console.log('[AuthStore] State updated. isAuthenticated:', !!data.user);
       } else {
         console.log('[AuthStore] ❌ Response not OK, status:', response.status);
+        window.sessionStorage.removeItem('user_email');
         set({ user: null, isAuthenticated: false, isLoading: false });
       }
     } catch (error) {
       console.error('[AuthStore] ❌ Session check failed with error:', error);
+      window.sessionStorage.removeItem('user_email');
       set({ user: null, isAuthenticated: false, isLoading: false });
     }
   },
@@ -51,6 +59,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   logout: async () => {
     try {
       await fetch('/api/auth/logout', { credentials: 'include' });
+      window.sessionStorage.removeItem('user_email');
       set({ user: null, isAuthenticated: false });
       window.location.href = '/login';
     } catch (error) {

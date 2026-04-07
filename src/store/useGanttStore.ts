@@ -269,11 +269,11 @@ async function buildSheetFromDB(projectId: string, project: Project): Promise<Pr
       start_date:   t.start_date,
       end_date:     t.end_date,
       duration:     t.duration,
-      bg_color:     t.bg_color,
-      text_color:   t.text_color,
-      is_summary:   t.is_summary,
-      is_milestone: t.is_milestone,
-      is_critical:  t.is_critical,
+      bg_color:     t.bg_color     || "#0f8b8d",
+      text_color:   t.text_color   || "#ffffff",
+      is_summary:   t.is_summary   ?? false,
+      is_milestone: t.is_milestone ?? false,
+      is_critical:  t.is_critical  ?? false,
       level:        t.level,
       sort_order:   t.sort_order,
       progress:     t.progress,
@@ -436,6 +436,26 @@ export const useGanttStore = create<GanttStore>((set, get) => ({
         siblings.reduce((mx, taskId) => Math.max(mx, sheet.tasksById[taskId].sort_order), 0) + 1;
       const task = defaultTask(sheet.project.id, nextSort, draft, parentTaskId, parent ? parent.level + 1 : 0);
       sheet.tasksById[task.id] = task;
+      return recalc(sheet);
+    }),
+
+  // ── bulkAddTasks ─────────────────────────────────────────
+  // Adds multiple tasks in one shot (single recalc + single DB sync).
+  // Use this instead of looping addTask to avoid race-condition deletions.
+  bulkAddTasks: (entries: Array<{ draft: TaskDraft; parentTaskId: string | null }>) =>
+    mutateActive(set, (sheet) => {
+      for (const { draft, parentTaskId } of entries) {
+        const title = draft.title.trim();
+        if (!title) continue;
+        // Rebuild children index so sort_order increments correctly per parent
+        sheet.childrenByParentId = rebuildChildrenIndex(sheet.tasksById);
+        const parent = parentTaskId ? sheet.tasksById[parentTaskId] : null;
+        const siblings = sheet.childrenByParentId[parentTaskId ?? ROOT_KEY] ?? [];
+        const nextSort =
+          siblings.reduce((mx, taskId) => Math.max(mx, sheet.tasksById[taskId].sort_order), 0) + 1;
+        const task = defaultTask(sheet.project.id, nextSort, draft, parentTaskId, parent ? parent.level + 1 : 0);
+        sheet.tasksById[task.id] = task;
+      }
       return recalc(sheet);
     }),
 

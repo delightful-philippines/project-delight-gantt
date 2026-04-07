@@ -324,6 +324,7 @@ export function GanttApp(): JSX.Element {
     editProject,
     deleteProject,
     addTask,
+    bulkAddTasks,
     editTask,
     deleteTaskWithSubtree,
     createBaseline,
@@ -343,6 +344,7 @@ export function GanttApp(): JSX.Element {
     editProject: s.editProject,
     deleteProject: s.deleteProject,
     addTask: s.addTask,
+    bulkAddTasks: s.bulkAddTasks,
     editTask: s.editTask,
     deleteTaskWithSubtree: s.deleteTaskWithSubtree,
     createBaseline: s.createBaseline,
@@ -394,8 +396,7 @@ export function GanttApp(): JSX.Element {
 
   const projectViewers = useMemo(() => {
     if (!registeredUsers.length) return [];
-    // Only show people with global view permissions as "Viewers"
-    return registeredUsers.filter(u => u.can_view_all_projects);
+    return registeredUsers;
   }, [registeredUsers]);
 
   const visibleRowIds = useMemo(() => {
@@ -751,14 +752,14 @@ export function GanttApp(): JSX.Element {
                 </button>
                 {userRole !== 'viewer' && activeSheet && (
                   <button 
-                    className="btn-premium bg-linear-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 hover:to-purple-600 shadow-purple-200 h-9 px-3 sm:px-4 text-xs font-medium flex items-center gap-2 border-0"
+                    className="btn-premium bg-white text-blue-600 hover:bg-slate-50 shadow-slate-200 h-9 px-3 sm:px-4 text-xs font-medium flex items-center gap-2 border border-slate-200"
                     onClick={() => {
                       setAiContext("");
                       setModal({ type: "ai_update" });
                     }}
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                    <span className="hidden md:inline font-bold">AI Support</span>
+                    <span className="hidden md:inline font-bold">Build Gantt List</span>
                   </button>
                 )}
 
@@ -1462,6 +1463,7 @@ export function GanttApp(): JSX.Element {
                 let count = 0;
                  const tempIdToRealId = new Map<string, string>();
 
+                 // Collect all update_task ops first (each triggers its own sync — acceptable)
                  for (const op of res.operations) {
                     if (op.type === "update_task" && op.taskId && activeSheet.tasksById[op.taskId]) {
                        const t = activeSheet.tasksById[op.taskId];
@@ -1476,32 +1478,37 @@ export function GanttApp(): JSX.Element {
                           dependencies: t.dependencies,
                           is_milestone: t.is_milestone
                        };
-                       
                        editTask(op.taskId, updates);
-                       count++;
-                    } else if (op.type === "create_task" && op.task) {
-                       const realId = id("task");
-                       if (op.tempId) {
-                          tempIdToRealId.set(op.tempId, realId);
-                       }
-
-                       // Parent ID can be a real ID or a temp ID from this batch
-                       const resolvedParentId = (op.parentId && tempIdToRealId.has(op.parentId)) 
-                          ? tempIdToRealId.get(op.parentId)! 
-                          : (op.parentId || null);
-
-                       addTask({
-                          id: realId,
-                          ...blankTaskDraft(activeSheet.project.start_date),
-                          title: op.task.title || "New Task",
-                          start_date: op.task.start_date || activeSheet.project.start_date,
-                          end_date: op.task.end_date || activeSheet.project.end_date,
-                          progress: op.task.progress || 0,
-                          assignee: op.task.assignee || ""
-                       }, resolvedParentId);
                        count++;
                     }
                  }
+
+                 // Collect all create_task ops and resolve temp IDs first,
+                 // then add them all in one shot to avoid race-condition bulk deletions.
+                 const toCreate: Array<{ draft: TaskDraft; parentTaskId: string | null }> = [];
+                 for (const op of res.operations) {
+                    if (op.type === "create_task" && op.task) {
+                       const realId = id("task");
+                       if (op.tempId) tempIdToRealId.set(op.tempId, realId);
+                       const resolvedParentId = (op.parentId && tempIdToRealId.has(op.parentId))
+                          ? tempIdToRealId.get(op.parentId)!
+                          : (op.parentId || null);
+                       toCreate.push({
+                          draft: {
+                             id: realId,
+                             ...blankTaskDraft(activeSheet.project.start_date),
+                             title: op.task.title || "New Task",
+                             start_date: op.task.start_date || activeSheet.project.start_date,
+                             end_date: op.task.end_date || activeSheet.project.end_date,
+                             progress: typeof op.task.progress === "number" ? op.task.progress : 0,
+                             assignee: op.task.assignee || "",
+                          },
+                          parentTaskId: resolvedParentId,
+                       });
+                       count++;
+                    }
+                 }
+                 if (toCreate.length > 0) bulkAddTasks(toCreate);
                  showToast("AI Update Complete", `Applied ${count} operations based on your context.`, "success");
                 setModal({ type: "none" });
              } catch (err: any) {
@@ -1513,13 +1520,13 @@ export function GanttApp(): JSX.Element {
           }}
         >
           <div className="grid gap-6">
-            <div className="rounded-xl bg-purple-50 p-4 border border-purple-100 flex gap-4 items-start">
-               <div className="bg-linear-to-br from-indigo-500 to-purple-500 w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-purple-200">
+            <div className="rounded-xl bg-blue-50 p-4 border border-blue-100 flex gap-4 items-start">
+               <div className="bg-blue-600 w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-blue-200">
                   <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                </div>
                <div>
-                 <h4 className="text-sm font-bold text-purple-900 mb-1">AI Assistant is ready</h4>
-                 <p className="text-xs text-purple-700 leading-relaxed">
+                 <h4 className="text-sm font-bold text-blue-900 mb-1">AI Assistant is ready</h4>
+                 <p className="text-xs text-blue-700 leading-relaxed">
                    Paste meeting notes, chat logs, email threads, or daily progress updates below. The AI will analyze the text and automatically generate tasks, update progress percentages, and adjust schedules accordingly.
                  </p>
                </div>
@@ -1527,7 +1534,7 @@ export function GanttApp(): JSX.Element {
             <label className="grid gap-2">
               <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Project Context & Notes</span>
               <textarea
-                className="input-premium text-sm p-4 h-48 resize-y focus:border-purple-400 focus:ring-purple-100"
+                className="input-premium text-sm p-4 h-48 resize-y focus:border-blue-400 focus:ring-blue-100"
                 placeholder="E.g. We met today and decided to launch the frontend next Friday. Jonald finished 80% of the API. Add a new task for security review..."
                 value={aiContext}
                 onChange={(e) => setAiContext(e.target.value)}

@@ -88,6 +88,7 @@ export interface GanttStore {
   editProject: (projectId: string, draft: ProjectDraft) => void;
   deleteProject: (projectId: string) => void;
   addTask: (draft: TaskDraft, parentTaskId?: string | null) => void;
+  bulkAddTasks: (entries: Array<{ draft: TaskDraft; parentTaskId: string | null }>) => void;
   editTask: (taskId: string, draft: TaskDraft) => void;
   deleteTaskWithSubtree: (taskId: string) => void;
   createBaseline: (label: string) => Promise<void>;

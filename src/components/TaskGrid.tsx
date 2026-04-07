@@ -74,7 +74,7 @@ export const TaskGrid = React.memo(function TaskGrid({
     <section className="min-h-full min-w-0 border-r border-slate-200 bg-white flex flex-col">
       <div className="min-h-0 flex-1">
         <div
-          className="sticky top-0 z-[100] grid h-12 items-center border-b border-slate-200 bg-white/95 backdrop-blur-sm text-xs font-medium uppercase tracking-wider text-slate-400"
+          className="sticky top-0 z-100 grid h-12 items-center border-b border-slate-200 bg-white/95 backdrop-blur-sm text-xs font-medium uppercase tracking-wider text-slate-400"
           style={{ gridTemplateColumns: GRID_COLUMNS, width: 'max-content', minWidth: '100%' }}
         >
           <div className="px-4">Task</div>
@@ -169,7 +169,7 @@ export const TaskGrid = React.memo(function TaskGrid({
                 <div className="px-4 overflow-visible flex items-center">
                   {(() => {
                     const assignee = task.assignee;
-                    if (!assignee) return <span className="text-[10px] font-bold text-slate-300 uppercase tracking-tighter">None</span>;
+                    if (!assignee) return <span className="text-xs font-bold text-slate-300 uppercase tracking-tighter">None</span>;
                     
                     const user = systemUsers.find(u => u.email === assignee);
                     const formattedName = user?.first_name 
@@ -191,7 +191,7 @@ export const TaskGrid = React.memo(function TaskGrid({
                 </div>
                 
                 <div className="flex items-center gap-3 px-4 mr-4">
-                  <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden flex-1 max-w-[60px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)]">
+                  <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden flex-1 max-w-15 shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)]">
                     <div 
                       className="h-full rounded-full transition-all duration-500 shadow-[inset_0_-1px_1px_rgba(0,0,0,0.1)] relative overflow-hidden" 
                       style={{ width: `${progress}%`, backgroundColor: task.bg_color }} 
@@ -207,7 +207,7 @@ export const TaskGrid = React.memo(function TaskGrid({
                   </span>
                 </div>
                 
-                <div className={`sticky right-0 h-full border-l border-slate-50 bg-inherit px-2 ${isSelected ? "z-[95]" : "z-[80]"}`}>
+                <div className={`sticky right-0 h-full border-l border-slate-50 bg-inherit px-2 ${isSelected ? "z-95" : "z-80"}`}>
                   <div className="flex h-full items-center justify-center relative">
                     <button
                       className={`inline-flex h-7 w-7 items-center justify-center rounded-lg transition-all ${isSelected ? "bg-slate-800 text-white" : "text-slate-300 hover:bg-slate-100 hover:text-slate-600"}`}
@@ -231,7 +231,7 @@ export const TaskGrid = React.memo(function TaskGrid({
                       <div 
                         id="task-menu-portal"
                         style={{ position: "fixed", top: `${rect.top}px`, left: `${rect.left - 164}px` }}
-                        className="task-menu-dropdown z-[9999] w-40 animate-enter rounded-lg border border-slate-200 bg-white p-1 shadow-xl"
+                        className="task-menu-dropdown z-9999 w-40 animate-enter rounded-lg border border-slate-200 bg-white p-1 shadow-xl"
                       >
                         {[
                           { label: "Subtask", icon: <path d="M12 4v16m8-8H4" />, onClick: () => onAddSubtask(task) },
@@ -264,5 +264,4 @@ export const TaskGrid = React.memo(function TaskGrid({
     </section>
   );
 });
-
 

@@ -74,7 +74,7 @@ export const Timeline = React.memo(function Timeline({
   return (
     <section className="min-h-full min-w-0 bg-white shadow-inner flex flex-col relative">
       <div className="scroll-premium flex-1 overflow-x-auto overflow-y-visible" ref={ref}>
-        <div className="sticky top-0 z-[110] bg-white w-max">
+        <div className="sticky top-0 z-110 bg-white w-max">
           <svg width={chartWidth} height={HEADER_HEIGHT} className="select-none block">
             <g transform={`translate(${SVG_OFFSET_X}, 0)`}>
               {/* Header Background */}

@@ -37,14 +37,14 @@ router.get('/', requireUser, identifyRole, async (req, res) => {
       .from('employees')
       .select('employee_id, first_name, last_name, company_email_add, personal_email_add, position, department, business_unit');
 
-    if (req.query.search) {
+    if (req.query.employee_id) {
+      // Direct lookup by numeric employee_id
+      query = query.eq('employee_id', parseInt(req.query.employee_id, 10)).limit(1);
+    } else if (req.query.search) {
       const searchTerm = req.query.search.trim();
       const searchParts = searchTerm.split(/\s+/).filter(Boolean);
 
-      // Search each part individually so that "Jonald Penpillo" matches "Jonald" and "Penpillo"
-      // We'll require ALL parts to match SOME field (first, last, email) for it to be a match
       if (searchParts.length > 0) {
-          
           searchParts.forEach(part => {
              const likePart = `%${part}%`;
              query = query.or(`first_name.ilike.${likePart},last_name.ilike.${likePart},company_email_add.ilike.${likePart},personal_email_add.ilike.${likePart},nick_name.ilike.${likePart}`);

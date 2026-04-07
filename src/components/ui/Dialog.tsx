@@ -142,11 +142,11 @@ export function Toast({
 
   if (!isOpen) return null;
 
-  const accentColors: Record<DialogVariant, { bar: string; icon: string; title: string }> = {
-    danger:  { bar: 'bg-red-500',     icon: 'text-red-500',     title: 'text-slate-800' },
-    warning: { bar: 'bg-amber-400',   icon: 'text-amber-500',   title: 'text-slate-800' },
-    success: { bar: 'bg-emerald-500', icon: 'text-emerald-500', title: 'text-slate-800' },
-    info:    { bar: 'bg-blue-500',    icon: 'text-blue-500',    title: 'text-slate-800' },
+  const accentColors: Record<DialogVariant, { icon: string; title: string }> = {
+    danger:  { icon: 'text-red-500',     title: 'text-slate-800' },
+    warning: { icon: 'text-amber-500',   title: 'text-slate-800' },
+    success: { icon: 'text-emerald-500', title: 'text-slate-800' },
+    info:    { icon: 'text-blue-500',    title: 'text-slate-800' },
   };
 
   const iconPaths: Record<DialogVariant, string> = {
@@ -156,17 +156,15 @@ export function Toast({
     info:    'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
   };
 
-  const { bar, icon, title: titleColor } = accentColors[variant];
+  const { icon, title: titleColor } = accentColors[variant];
 
   return createPortal(
     <div
       className="fixed bottom-6 right-6 z-[99999] w-full max-w-sm animate-enter"
       role="alert"
     >
-      <div className="bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden flex">
-        {/* Accent bar */}
-        <div className={`w-1 shrink-0 ${bar}`} />
-        <div className="flex-1 p-4 flex items-start gap-3">
+      <div className="bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden">
+        <div className="p-4 flex items-start gap-3">
           {/* Icon */}
           <svg className={`w-5 h-5 shrink-0 mt-0.5 ${icon}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={iconPaths[variant]} />

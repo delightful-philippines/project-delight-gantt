@@ -14,36 +14,7 @@ router.get('/', requireUser, identifyRole, async (req, res) => {
       .from('projects')
       .select('*');
 
-    // Filter if not super_admin
-    if (req.userRole !== 'super_admin') {
-      // 1. Get user's employee record and global permission flag
-      const [{ data: employeeData }, { data: userData }] = await Promise.all([
-        supabaseAdmin
-          .from('employees')
-          .select('business_unit')
-          .eq('company_email_add', req.userEmail)
-          .single(),
-        supabaseAdmin
-          .from('app_users')
-          .select('can_view_all_projects')
-          .eq('email', req.userEmail)
-          .single()
-      ]);
-
-      const searchEmail = req.userEmail.toLowerCase().trim();
-
-      // If user has global view permission, we don't filter the query!
-      if (!userData || !userData.can_view_all_projects) {
-        if (employeeData && employeeData.business_unit) {
-          // Find projects matching their business unit OR they are the explicit leader
-          // OR projects that have NO business unit (Public)
-          query = query.or(`business_unit.eq."${employeeData.business_unit}",lead.ilike."${searchEmail}",business_unit.is.null`);
-        } else {
-          // If user has no business unit, they see only what they lead or public projects
-          query = query.or(`lead.ilike."${searchEmail}",business_unit.is.null`);
-        }
-      }
-    }
+    // All authenticated users see all projects
 
     const { data, error } = await query.order('created_at', { ascending: true });
 
