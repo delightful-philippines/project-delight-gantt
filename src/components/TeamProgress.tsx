@@ -19,30 +19,27 @@ export function TeamProgress({ sheet, systemUsers }: Props) {
     }> = {};
 
     tasks.forEach(task => {
-      const assignee = task.assignee || 'unassigned';
+      const assignee = task.assignee?.trim();
+      if (!assignee || assignee.toLowerCase() === 'unassigned') return;
       if (!byAssignee[assignee]) {
         byAssignee[assignee] = { totalProgress: 0, completed: 0, pending: 0, tasksCount: 0 };
       }
+      const progress = Number(task.progress) || 0;
       byAssignee[assignee].tasksCount++;
-      byAssignee[assignee].totalProgress += task.progress;
-      if (task.progress === 100) byAssignee[assignee].completed++;
+      byAssignee[assignee].totalProgress += progress;
+      if (progress === 100) byAssignee[assignee].completed++;
       else byAssignee[assignee].pending++;
     });
 
     return Object.entries(byAssignee).map(([email, data]) => {
       const user = systemUsers.find(u => u.email === email);
-      const name = user ? `${user.first_name} ${user.last_name || ''}`.trim() : email;
+      const rawName = user ? `${user.first_name} ${user.last_name || ''}`.trim() : email;
+      const name = rawName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
       const avgProgress = Math.round(data.totalProgress / data.tasksCount);
-      
-      return {
-        email,
-        name: email === 'unassigned' ? 'Unassigned' : name,
-        avgProgress,
-        total: data.tasksCount,
-        completed: data.completed,
-        pending: data.pending
-      };
-    }).sort((a, b) => b.avgProgress - a.avgProgress);
+      return { email, name, avgProgress, total: data.tasksCount, completed: data.completed, pending: data.pending };
+    })
+    .filter(s => s.avgProgress > 0)
+    .sort((a, b) => b.avgProgress - a.avgProgress);
   }, [sheet, systemUsers]);
 
   return (
@@ -67,35 +64,35 @@ export function TeamProgress({ sheet, systemUsers }: Props) {
               {/* Decorative background glow */}
               <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 blur-[40px] rounded-full -mr-16 -mt-16 group-hover:bg-blue-500/10 transition-colors" />
               
-              <div className="flex items-center gap-4 mb-6 relative">
-                <UserAvatar 
-                  email={s.email !== 'unassigned' ? s.email : undefined} 
+              <div className="flex items-center gap-4 mb-5 relative">
+                <UserAvatar
+                  email={s.email}
                   name={s.name}
-                  size="lg" 
+                  size="lg"
                   activeColor="#3b82f6"
-                  className="ring-4 ring-slate-50 border border-slate-100" 
+                  className="ring-4 ring-slate-50 border border-slate-100"
                 />
                 <div className="min-w-0">
-                  <h3 className="text-sm font-bold text-slate-900 truncate tracking-tight">{s.name}</h3>
+                  <h3 className="text-sm font-medium text-slate-900 truncate tracking-tight">{s.name}</h3>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="h-1.5 w-1.5 rounded-full bg-blue-400" />
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">{s.total} Tasks Tracked</p>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-none">{s.total} Tasks Tracked</p>
                   </div>
                 </div>
               </div>
 
               <div className="space-y-4 relative">
                 <div className="flex items-end justify-between">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Average Completion</span>
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Average Completion</span>
                   <div className="flex items-baseline gap-0.5">
                     <span className="text-2xl font-bold text-slate-900 tabular-nums leading-none">{s.avgProgress}</span>
-                    <span className="text-sm font-bold text-slate-400 font-mono">%</span>
+                    <span className="text-xs font-bold text-slate-400 font-mono">%</span>
                   </div>
                 </div>
-                
-                <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden shadow-inset">
-                  <div 
-                    className="h-full bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full transition-all duration-1000 ease-out shadow-lg"
+
+                <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-1000 ease-out ${s.avgProgress === 100 ? 'bg-emerald-500' : 'bg-blue-600'}`}
                     style={{ width: `${s.avgProgress}%` }}
                   />
                 </div>
@@ -122,7 +119,7 @@ export function TeamProgress({ sheet, systemUsers }: Props) {
               <div className="mt-4 pt-4 border-t border-slate-50 flex items-center justify-between">
                  <div className="flex flex-col capitalize">
                     <span className="text-[8px] font-bold text-slate-300 uppercase tracking-widest">Recent Activity</span>
-                    <span className="text-[10px] font-bold text-slate-500">
+                    <span className="text-xs font-bold text-slate-500">
                        {s.completed === s.total ? 'Mission Critical Done' : 'Actively Synchronizing'}
                     </span>
                  </div>

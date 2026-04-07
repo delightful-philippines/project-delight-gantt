@@ -58,36 +58,149 @@ export function ProjectsPage() {
     setSearchParams({ tab });
   };
 
-  useEffect(() => {
-    if (userRole === 'super_admin' || userRole === 'editor') {
-      api.employees.search('').then(data => {
-        const mappedUsers = data.map((e: any) => ({
-          email: (e.company_email_add || e.personal_email_add || `id:${e.employee_id}`).toLowerCase().trim(),
-          first_name: e.first_name,
-          last_name: e.last_name,
-          role: 'viewer' as const,
-          created_at: '',
-          updated_at: ''
-        }));
-        setUsers(mappedUsers);
-      }).catch(console.error);
+  const mergeUsers = (prev: DBUser[], incoming: DBUser[]) => {
+    const pick = <T,>(nextVal: T | null | undefined, prevVal: T | null | undefined) =>
+      nextVal !== null && nextVal !== undefined && nextVal !== '' ? nextVal : prevVal;
+
+    const map = new Map<string, DBUser>();
+    prev.forEach(u => map.set(u.email.toLowerCase().trim(), u));
+    incoming.forEach(u => {
+      const key = u.email.toLowerCase().trim();
+      const existing = map.get(key);
+      if (!existing) {
+        map.set(key, u);
+        return;
+      }
+
+      map.set(key, {
+        ...existing,
+        ...u,
+        first_name: pick(u.first_name, existing.first_name),
+        last_name: pick(u.last_name, existing.last_name),
+        employee_id: pick(u.employee_id, existing.employee_id),
+        company_email_add: pick(u.company_email_add, existing.company_email_add),
+        personal_email_add: pick(u.personal_email_add, existing.personal_email_add),
+        position: pick(u.position, existing.position),
+        department: pick(u.department, existing.department),
+        business_unit: pick(u.business_unit, existing.business_unit),
+      });
+    });
+    return Array.from(map.values());
+  };
+
+  const toDirectoryUsers = (e: DBEmployee): DBUser[] => {
+    const base: Omit<DBUser, 'email'> = {
+      role: 'viewer',
+      first_name: e.first_name,
+      last_name: e.last_name,
+      employee_id: e.employee_id,
+      company_email_add: e.company_email_add,
+      personal_email_add: e.personal_email_add,
+      position: e.position,
+      department: e.department,
+      business_unit: e.business_unit ?? null,
+      created_at: '',
+      updated_at: '',
+      can_view_all_projects: false,
+    };
+
+    const emails = [e.company_email_add, e.personal_email_add]
+      .map(v => v?.toLowerCase().trim())
+      .filter((v): v is string => !!v);
+
+    const usersFromEmails = emails.map(email => ({ ...base, email }));
+    const idAlias = { ...base, email: `id:${e.employee_id}` };
+    return [idAlias, ...usersFromEmails];
+  };
+
+  const loadEmployeeDirectory = async () => {
+    try {
+      const employees = await api.employees.search('');
+      const mapped = employees.flatMap(toDirectoryUsers);
+      setUsers(prev => mergeUsers(prev, mapped));
+    } catch (err) {
+      console.error('Failed to load employee directory:', err);
     }
+  };
+
+  const hydrateLeadsFromBackend = async () => {
+    try {
+      const leads = Array.from(new Set(
+        Object.values(projectsById)
+          .map(s => (s.project.lead || '').trim())
+          .filter(Boolean)
+      ));
+
+      if (!leads.length) return;
+
+      const employees = await Promise.all(leads.map(async lead => {
+        const lower = lead.toLowerCase();
+        const idMatch = lower.match(/^id:(\d+)$/) || lower.match(/^(\d+)$/);
+        if (idMatch) {
+          const rows = await api.employees.getById(Number(idMatch[1])).catch(() => [] as DBEmployee[]);
+          return rows[0] || null;
+        }
+
+        if (lead.includes('@')) {
+          const target = lead.toLowerCase().trim();
+          const rows = await api.employees.search(target).catch(() => [] as DBEmployee[]);
+          return rows.find(e =>
+            [e.company_email_add, e.personal_email_add]
+              .some(v => (v || '').toLowerCase().trim() === target)
+          ) || null;
+        }
+
+        return null;
+      }));
+
+      const mapped = employees.filter((e): e is DBEmployee => !!e).flatMap(toDirectoryUsers);
+      if (mapped.length) {
+        setUsers(prev => mergeUsers(prev, mapped));
+      }
+    } catch (err) {
+      console.error('Failed to hydrate lead directory:', err);
+    }
+  };
+
+  // Maintenance load: hydrate full employee directory once (email/id keyed).
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    loadEmployeeDirectory();
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    if (!Object.keys(projectsById).length) return;
+    hydrateLeadsFromBackend();
+  }, [isAuthenticated, projectsById]);
+
+  // Overlay app-users flags (role, can_view_all_projects) when available.
+  useEffect(() => {
+    if (userRole !== 'super_admin') return;
+    api.users.list()
+      .then(data => setUsers(prev => mergeUsers(prev, data)))
+      .catch(err => console.error('Failed to fetch users list:', err));
   }, [userRole]);
 
   const handleSearchUsers = async (term: string) => {
     if (!term || term.length < 2) return;
     try {
       const data = await api.employees.search(term);
-      const mappedResults: DBUser[] = data.map((e: DBEmployee) => ({
-        email: (e.company_email_add || e.personal_email_add || `id:${e.employee_id}`).toLowerCase().trim(),
-        first_name: e.first_name,
-        last_name: e.last_name,
-        role: 'viewer' as const,
-        created_at: '',
-        updated_at: '',
-        can_view_all_projects: false
-      }));
-      
+      const mappedResults: DBUser[] = [];
+      data.forEach((e: DBEmployee) => {
+        const base = {
+          first_name: e.first_name,
+          last_name: e.last_name,
+          role: 'viewer' as const,
+          created_at: '',
+          updated_at: '',
+          can_view_all_projects: false
+        };
+        for (const raw of [e.company_email_add, e.personal_email_add]) {
+          const email = raw?.toLowerCase().trim();
+          if (email) mappedResults.push({ ...base, email });
+        }
+      });
       setUsers(prev => {
         const existingEmails = new Set(prev.map(u => u.email));
         const newUsers = mappedResults.filter(u => !existingEmails.has(u.email));
@@ -163,63 +276,45 @@ export function ProjectsPage() {
     });
 
   const actions = (
-    <div className="flex flex-wrap items-center justify-between gap-4">
-      <div className="flex items-center gap-3 flex-1 min-w-[280px]">
-        <div className="relative flex-1">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-          <input 
-            type="text" 
-            placeholder="Search projects by name, lead, or description..." 
-            className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:bg-white focus:ring-4 focus:ring-blue-500/10 outline-none transition-all placeholder:text-slate-400"
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-          />
-        </div>
-        
-        <CustomSelect 
-          options={[
-            { value: 'name', label: 'Sort by Name' },
-            { value: 'date', label: 'Sort by Date' },
-            { value: 'progress', label: 'Sort by Progress' }
-          ]}
-          value={sortBy}
-          onChange={val => setSortBy(val as any)}
-          className="w-44"
+    <div className="flex items-center gap-2">
+      <div className="relative hidden md:block">
+        <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+        <input
+          type="text"
+          placeholder="Search projects..."
+          className="w-48 lg:w-56 pl-9 pr-3 h-9 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:bg-white focus:w-64 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all placeholder:text-slate-400"
+          value={searchTerm}
+          onChange={e => setSearchTerm(e.target.value)}
         />
-
-        <button 
-          onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-          className="p-2.5 bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-all active:scale-95"
-          title={`Order: ${sortOrder === 'asc' ? 'Ascending' : 'Descending'}`}
-        >
-          <svg className={`w-4 h-4 transition-transform ${sortOrder === 'desc' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" /></svg>
-        </button>
       </div>
 
-      <button 
-        onClick={() => setShowModal({ type: 'create' })}
-        className="flex h-10 items-center gap-2 rounded-lg bg-blue-600 px-5 text-xs font-medium text-white transition-all hover:bg-blue-700 active:scale-95 whitespace-nowrap"
+      <CustomSelect
+        options={[
+          { value: 'name', label: 'Name' },
+          { value: 'date', label: 'Date' },
+          { value: 'progress', label: 'Progress' }
+        ]}
+        value={sortBy}
+        onChange={val => setSortBy(val as any)}
+        className="w-32 hidden sm:block"
+      />
+
+      <button
+        onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+        className="h-9 w-9 bg-white border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition-all active:scale-95 flex items-center justify-center flex-shrink-0"
+        title={`Order: ${sortOrder === 'asc' ? 'Ascending' : 'Descending'}`}
       >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg>
-        New Project
+        <svg className={`w-4 h-4 transition-transform ${sortOrder === 'desc' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" /></svg>
       </button>
 
-      <div className="h-10 border-l border-slate-200 mx-2 hidden sm:block" />
-
-      <div className="flex bg-slate-100 p-1 rounded-xl shrink-0">
-        <button 
-          onClick={() => handleTabChange('projects')}
-          className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${activeMainTab === 'projects' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-        >
-          Projects
-        </button>
-        <button 
-          onClick={() => handleTabChange('team')}
-          className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${activeMainTab === 'team' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-        >
-          Team Overview
-        </button>
-      </div>
+      <button
+        onClick={() => setShowModal({ type: 'create' })}
+        className="flex h-9 items-center gap-1.5 rounded-lg bg-blue-600 px-4 text-xs font-semibold text-white transition-all hover:bg-blue-700 active:scale-95 whitespace-nowrap flex-shrink-0"
+      >
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg>
+        <span className="hidden sm:inline">New Project</span>
+        <span className="sm:hidden">New</span>
+      </button>
     </div>
   );
 
@@ -252,7 +347,7 @@ export function ProjectsPage() {
                <div className="h-8 w-96 bg-slate-900 rounded-full ml-[40%] opacity-20" />
                <div className="h-8 w-48 bg-slate-900 rounded-full ml-[25%] opacity-30" />
                <div className="h-8 w-80 bg-slate-900 rounded-full ml-[60%] opacity-15" />
-               <div className="h-8 w-[500px] bg-slate-900 rounded-full ml-[5%] opacity-25" />
+               <div className="h-8 w-125 bg-slate-900 rounded-full ml-[5%] opacity-25" />
                <div className="h-8 w-32 bg-slate-900 rounded-full ml-[80%] opacity-10" />
                <div className="h-8 w-72 bg-slate-900 rounded-full ml-[35%] opacity-35" />
             </div>
@@ -260,8 +355,56 @@ export function ProjectsPage() {
           
           
           <div className="relative z-10">
+          {/* ── Page Header: title+subtitle left, tabs right ── */}
+          <div className="flex items-start justify-between gap-4 mb-8">
+            <div className="flex flex-col gap-1">
+              {activeMainTab === 'projects' ? (
+                <>
+                  <h2 className="text-2xl font-semibold text-slate-800 tracking-tight">Workspace Projects</h2>
+                  <div className="flex items-center gap-2">
+                    <div className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
+                    <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">
+                      {filteredProjects.length} active project{filteredProjects.length !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-2xl font-semibold text-slate-800 tracking-tight">Global Team Performance</h2>
+                  <div className="flex items-center gap-2">
+                    <div className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
+                    <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">
+                      Aggregated progress across {projects.length} workspace projects
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="flex bg-slate-100 p-1 rounded-xl shrink-0">
+              <button
+                onClick={() => handleTabChange('projects')}
+                className={`px-5 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${activeMainTab === 'projects' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                Projects
+              </button>
+              <button
+                onClick={() => handleTabChange('team')}
+                className={`px-5 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${activeMainTab === 'team' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                Team Overview
+              </button>
+              <button
+                onClick={() => navigate('/analytics')}
+                className="px-5 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all text-slate-400 hover:text-slate-600"
+              >
+                Analytics
+              </button>
+            </div>
+          </div>
+
           {activeMainTab === 'team' ? (
-            <WorkspaceTeamProgress projects={projects} systemUsers={users} />
+            <WorkspaceTeamProgress projects={projects} systemUsers={users} hideTitle />
           ) : filteredProjects.length === 0 && !isLoading ? (
             <div className="mt-8 flex flex-col items-center justify-center p-20 bg-white border border-slate-100 rounded-xl animate-enter">
               <div className="h-24 w-24 mb-6 flex items-center justify-center rounded-xl bg-slate-50 text-slate-300">
@@ -297,8 +440,8 @@ export function ProjectsPage() {
 
                         {activeMenuId === sheet.project.id && (
                           <>
-                            <div className="fixed inset-0 z-[100]" onClick={() => setActiveMenuId(null)} />
-                            <div className="absolute right-0 top-full mt-2 z-[110] w-40 bg-white border border-slate-200 rounded-lg py-1.5 animate-in fade-in slide-in-from-top-2 duration-200">
+                            <div className="fixed inset-0 z-100" onClick={() => setActiveMenuId(null)} />
+                            <div className="absolute right-0 top-full mt-2 z-110 w-40 bg-white border border-slate-200 rounded-lg py-1.5 animate-in fade-in slide-in-from-top-2 duration-200">
                               <button 
                                 onClick={() => {
                                   setDraft({
@@ -347,7 +490,7 @@ export function ProjectsPage() {
                          <span className="text-xs font-medium uppercase tracking-widest text-slate-400">Completion</span>
                          <span className="text-xs font-medium text-slate-800">{progress}%</span>
                       </div>
-                      <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden flex shrink-0">
+                      <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden flex shrink-0">
                         <div 
                           className={`h-full rounded-full transition-all duration-700 ease-out ${progress === 100 ? 'bg-emerald-500' : 'bg-blue-600'}`}
                           style={{ width: `${progress}%` }}
@@ -356,7 +499,7 @@ export function ProjectsPage() {
                     </div>
 
                     <div className="mt-8 pt-5 border-t border-slate-100 flex items-center justify-between">
-                      <div className="flex items-center gap-3 max-w-[65%]">
+                      <div className="flex items-center gap-3 max-w-13/20">
                         {editingLeadId === sheet.project.id ? (
                           <UserSelect 
                             users={users}
@@ -429,7 +572,7 @@ export function ProjectsPage() {
 
       {/* Create / Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-900-[0.6] backdrop-blur-md p-4">
+        <div className="fixed inset-0 z-10000 flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4">
           <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden animate-enter border border-slate-200/80">
             <div className="p-6 border-b border-slate-100 flex items-center justify-between">
               <h3 className="text-[17px] font-semibold tracking-tight text-slate-800">

@@ -7,9 +7,10 @@ import { UserAvatar } from './ui/UserAvatar';
 interface Props {
   projects: ProjectSheet[];
   systemUsers: DBUser[];
+  hideTitle?: boolean;
 }
 
-export function WorkspaceTeamProgress({ projects, systemUsers }: Props) {
+export function WorkspaceTeamProgress({ projects, systemUsers, hideTitle = false }: Props) {
   const invalidText = (value?: string | null) => {
     const v = (value || '').trim().toLowerCase();
     return !v || ['null', 'undefined', 'none', 'n/a', 'na'].includes(v);
@@ -162,15 +163,17 @@ export function WorkspaceTeamProgress({ projects, systemUsers }: Props) {
 
   return (
     <div className="w-full space-y-8 animate-fade-in">
-      <div className="flex flex-col gap-1">
-        <h2 className="text-2xl font-semibold text-slate-800 tracking-tight">Global Team Performance</h2>
-        <div className="flex items-center gap-2">
-          <div className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
-          <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">Aggregated progress across {projects.length} workspace projects</p>
+      {!hideTitle && (
+        <div className="flex flex-col gap-1">
+          <h2 className="text-2xl font-semibold text-slate-800 tracking-tight">Global Team Performance</h2>
+          <div className="flex items-center gap-2">
+            <div className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
+            <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">Aggregated progress across {projects.length} workspace projects</p>
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6">
         {stats.length === 0 ? (
           <div className="col-span-full py-20 flex flex-col items-center justify-center text-slate-400 rounded-3xl border border-dashed border-slate-200 animate-enter">
             <div className="h-16 w-16 mb-4 flex items-center justify-center rounded-2xl bg-slate-50 text-slate-300">
@@ -257,9 +260,9 @@ export function WorkspaceTeamProgress({ projects, systemUsers }: Props) {
                 </div>
               </div>
 
-              <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+              <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-blue-600 rounded-full transition-all duration-1000 ease-out"
+                  className={`h-full rounded-full transition-all duration-1000 ease-out ${s.avgProgress === 100 ? 'bg-emerald-500' : 'bg-blue-600'}`}
                   style={{ width: `${s.avgProgress}%` }}
                 />
               </div>
@@ -296,85 +299,127 @@ export function WorkspaceTeamProgress({ projects, systemUsers }: Props) {
 
       {/* PMS Generation Modal */}
       {pmsTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-base font-semibold text-slate-800">Generate PMS Report</h3>
-              <button
-                onClick={() => { if (!pmsLoading) setPmsTarget(null); }}
-                disabled={pmsLoading}
-                className="h-7 w-7 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-md">
+          <div className="bg-white rounded-2xl shadow-[0_24px_64px_rgba(0,0,0,0.14)] w-full max-w-md mx-4 overflow-hidden">
 
-            <div className="mb-4 p-3 bg-slate-50 rounded-xl">
-              <p className="text-xs text-slate-500">Employee</p>
-              <p className="text-sm font-semibold text-slate-800">{pmsTarget.name}</p>
-              {pmsTarget.position && <p className="text-xs text-slate-500">{pmsTarget.position}</p>}
-            </div>
-
-            <div className="space-y-4 mb-5">
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Performance Year</label>
-                <input
-                  type="number"
-                  value={pmsYear}
-                  onChange={e => setPmsYear(Number(e.target.value))}
-                  min={2020}
-                  max={2099}
-                  disabled={pmsLoading}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Quarter</label>
-                <div className="grid grid-cols-4 gap-2">
-                  {([1, 2, 3, 4] as const).map(q => (
-                    <button
-                      key={q}
-                      onClick={() => setPmsQuarter(q)}
-                      disabled={pmsLoading}
-                      className={`py-2 rounded-lg text-xs font-bold border transition-all ${
-                        pmsQuarter === q
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300'
-                      } disabled:opacity-50`}
-                    >
-                      Q{q}
-                    </button>
-                  ))}
+            {/* Header */}
+            <div className="relative px-6 pt-6 pb-5 border-b border-slate-100">
+              <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/5 blur-[60px] rounded-full -mr-12 -mt-12 pointer-events-none" />
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center flex-shrink-0">
+                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-900 tracking-tight">Generate PMS Report</h3>
+                    <p className="text-[11px] text-slate-400 font-medium mt-0.5">AI-powered performance summary</p>
+                  </div>
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1">
-                  {['Jan–Mar','Apr–Jun','Jul–Sep','Oct–Dec'][pmsQuarter - 1]}
+                <button
+                  onClick={() => { if (!pmsLoading) setPmsTarget(null); }}
+                  disabled={pmsLoading}
+                  className="h-8 w-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div className="px-6 py-5 space-y-5">
+              {/* Employee info */}
+              <div className="flex items-center gap-3 p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+                <div className="h-9 w-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                  {pmsTarget.name.split(' ').map(n => n[0]).slice(0, 2).join('')}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-800 truncate">{pmsTarget.name}</p>
+                  {pmsTarget.position && (
+                    <p className="text-[11px] text-slate-400 font-medium truncate uppercase tracking-wide">{pmsTarget.position}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Year + Quarter */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2">Performance Year</label>
+                  <input
+                    type="number"
+                    value={pmsYear}
+                    onChange={e => setPmsYear(Number(e.target.value))}
+                    min={2020}
+                    max={2099}
+                    disabled={pmsLoading}
+                    className="w-full h-11 border border-slate-200 rounded-xl px-3 text-sm font-semibold text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 disabled:opacity-50 disabled:bg-slate-50 transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2">Quarter</label>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {([1, 2, 3, 4] as const).map(q => (
+                      <button
+                        key={q}
+                        onClick={() => setPmsQuarter(q)}
+                        disabled={pmsLoading}
+                        className={`h-11 rounded-xl text-xs font-bold border transition-all ${
+                          pmsQuarter === q
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-200'
+                            : 'bg-white text-slate-500 border-slate-200 hover:border-blue-300 hover:text-blue-600'
+                        } disabled:opacity-50 disabled:cursor-not-allowed`}
+                      >
+                        Q{q}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Quarter label */}
+              <div className="flex items-center gap-2 -mt-2">
+                <span className="h-1 w-1 rounded-full bg-blue-400" />
+                <p className="text-[11px] text-slate-400 font-medium">
+                  {['January – March', 'April – June', 'July – September', 'October – December'][pmsQuarter - 1]}, {pmsYear}
                 </p>
               </div>
-            </div>
 
-            {pmsError && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl">
-                <p className="text-xs text-red-600">{pmsError}</p>
-              </div>
-            )}
-
-            <button
-              onClick={handleGeneratePms}
-              disabled={pmsLoading}
-              className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-            >
-              {pmsLoading ? (
-                <>
-                  <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+              {/* Error */}
+              {pmsError && (
+                <div className="flex items-start gap-2.5 p-3.5 bg-red-50 border border-red-100 rounded-xl">
+                  <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  Generating...
-                </>
-              ) : 'Generate & Download'}
-            </button>
+                  <p className="text-xs text-red-600 font-medium">{pmsError}</p>
+                </div>
+              )}
+
+              {/* Generate button */}
+              <button
+                onClick={handleGeneratePms}
+                disabled={pmsLoading}
+                className="w-full h-11 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm shadow-blue-200"
+              >
+                {pmsLoading ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                    </svg>
+                    Generating with AI...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Generate & Download
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

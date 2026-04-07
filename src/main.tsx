@@ -1,6 +1,6 @@
 import React, { useEffect, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from "react-router-dom";
 import { useAuthStore } from "./store/useAuthStore";
 import { useGanttStore } from "./store/useGanttStore";
 import "./styles.css";
@@ -9,7 +9,7 @@ import "./styles.css";
 const LoginPage = lazy(() => import("./components/LoginPage").then(m => ({ default: m.LoginPage })));
 const ProjectsPage = lazy(() => import("./components/ProjectsPage").then(m => ({ default: m.ProjectsPage })));
 const GanttApp = lazy(() => import("./components/GanttApp").then(m => ({ default: m.GanttApp })));
-const AssigneePermissions = lazy(() => import("./components/AssigneePermissions").then(m => ({ default: m.AssigneePermissions })));
+const AnalyticsPage = lazy(() => import("./components/AnalyticsPage").then(m => ({ default: m.AnalyticsPage })));
 
 // ── Shared Loading Fallback ───────────────────────────────────
 const PageLoader = () => (
@@ -70,6 +70,29 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function DashboardLandingRoute() {
+  const [searchParams] = useSearchParams();
+  const tab = searchParams.get('tab');
+
+  if (tab === 'projects' || tab === 'team') {
+    return (
+      <ProtectedRoute>
+        <ProjectsPage />
+      </ProtectedRoute>
+    );
+  }
+
+  if (tab === 'analytics' || !tab) {
+    return (
+      <ProtectedRoute>
+        <AnalyticsPage />
+      </ProtectedRoute>
+    );
+  }
+
+  return <Navigate to="/analytics" replace />;
+}
+
 // ── Application Router ───────────────────────────────────────
 function AppRouter() {
   return (
@@ -82,9 +105,7 @@ function AppRouter() {
           <Route 
             path="/" 
             element={
-              <ProtectedRoute>
-                <ProjectsPage />
-              </ProtectedRoute>
+              <DashboardLandingRoute />
             } 
           />
           <Route 
@@ -95,15 +116,15 @@ function AppRouter() {
               </ProtectedRoute>
             } 
           />
-          <Route 
-            path="/permissions" 
+          <Route
+            path="/analytics"
             element={
               <ProtectedRoute>
-                <AssigneePermissions />
+                <AnalyticsPage />
               </ProtectedRoute>
-            } 
+            }
           />
-          
+
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

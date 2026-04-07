@@ -7,7 +7,7 @@ import { UserAvatar } from './UserAvatar';
 interface DashboardShellProps {
   title: string;
   children: React.ReactNode;
-  activeTab: 'dashboard' | 'team' | 'overview' | 'permissions';
+  activeTab: 'dashboard' | 'team' | 'overview' | 'analytics';
   actions?: React.ReactNode;
   noPadding?: boolean;
   onOverviewClick?: () => void;
@@ -40,7 +40,7 @@ export function DashboardShell({
     <div className="flex h-screen bg-slate-100 overflow-hidden font-sans relative">
       
       {/* ── Sidebar (Synced with GanttApp) ── */}
-      <aside className="hidden lg:flex fixed inset-y-0 left-0 z-[200] w-[72px] flex-col items-center border-r border-slate-200/60 bg-white/80 backdrop-blur-3xl py-6 shadow-[4px_0_24px_-10px_rgba(0,0,0,0.05)]">
+      <aside className="hidden lg:flex fixed inset-y-0 left-0 z-200 w-18 flex-col items-center border-r border-slate-200/60 bg-white/80 backdrop-blur-3xl py-6 shadow-[4px_0_24px_-10px_rgba(0,0,0,0.05)]">
         <div className="mb-8 flex h-10 w-10 items-center justify-center text-blue-600">
           <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
@@ -48,9 +48,25 @@ export function DashboardShell({
         </div>
         
         <nav className="flex flex-col items-center gap-6">
+          <button
+            onClick={() => navigate("/analytics")}
+            className={`group relative flex h-10 w-10 items-center justify-center rounded-lg transition-all ${
+              activeTab === 'analytics'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-200'
+                : 'text-slate-400 hover:bg-slate-50 hover:text-blue-600 border border-transparent'
+            }`}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            <span className="absolute left-full ml-3 hidden group-hover:block whitespace-nowrap rounded-lg bg-slate-800 px-2 py-1 text-xs font-bold text-white uppercase tracking-wider shadow-xl z-300">
+              Analytics
+            </span>
+          </button>
+
           <button 
             onClick={onProjectsClick || (() => navigate("/"))}
-            className={`group relative flex h-10 w-10 items-center justify-center rounded-xl transition-all ${
+            className={`group relative flex h-10 w-10 items-center justify-center rounded-lg transition-all ${
               activeTab === 'dashboard' 
                 ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' 
                 : 'text-slate-400 hover:bg-slate-50 hover:text-blue-600 border border-transparent'
@@ -59,44 +75,27 @@ export function DashboardShell({
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
             </svg>
-            <span className="absolute left-full ml-3 hidden group-hover:block whitespace-nowrap rounded-lg bg-slate-800 px-2 py-1 text-[10px] font-bold text-white uppercase tracking-wider shadow-xl z-[300]">
+            <span className="absolute left-full ml-3 hidden group-hover:block whitespace-nowrap rounded-lg bg-slate-800 px-2 py-1 text-xs font-bold text-white uppercase tracking-wider shadow-xl z-300">
               Projects
             </span>
           </button>
 
           <button 
             onClick={onOverviewClick || (() => navigate("/?tab=team"))}
-            className={`group relative flex h-10 w-10 items-center justify-center rounded-xl transition-all ${
-              activeTab === 'overview' 
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' 
-                : 'text-slate-400 hover:bg-slate-50 hover:text-indigo-600 border border-transparent'
+            className={`group relative flex h-10 w-10 items-center justify-center rounded-lg transition-all ${
+              activeTab === 'overview'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-200'
+                : 'text-slate-400 hover:bg-slate-50 hover:text-blue-600 border border-transparent'
             }`}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
-            <span className="absolute left-full ml-3 hidden group-hover:block whitespace-nowrap rounded-lg bg-slate-800 px-2 py-1 text-[10px] font-bold text-white uppercase tracking-wider shadow-xl z-[300]">
+            <span className="absolute left-full ml-3 hidden group-hover:block whitespace-nowrap rounded-lg bg-slate-800 px-2 py-1 text-xs font-bold text-white uppercase tracking-wider shadow-xl z-300">
               Global Stats
             </span>
           </button>
 
-          {userRole === 'super_admin' && (
-            <button 
-              onClick={() => navigate("/permissions")}
-              className={`group relative flex h-10 w-10 items-center justify-center rounded-xl transition-all ${
-                activeTab === 'permissions' 
-                  ? 'bg-amber-600 text-white shadow-lg shadow-amber-200' 
-                  : 'text-slate-400 hover:bg-slate-50 hover:text-amber-600 border border-transparent'
-              }`}
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-              </svg>
-              <span className="absolute left-full ml-3 hidden group-hover:block whitespace-nowrap rounded-lg bg-slate-800 px-2 py-1 text-[10px] font-bold text-white uppercase tracking-wider shadow-xl z-[300]">
-                Permissions
-              </span>
-            </button>
-          )}
 
         </nav>
 
@@ -118,7 +117,7 @@ export function DashboardShell({
                <polyline points="16 17 21 12 16 7" />
                <line x1="21" y1="12" x2="9" y2="12" />
              </svg>
-             <span className="absolute left-full ml-3 hidden group-hover:block whitespace-nowrap rounded-lg bg-slate-800 px-2 py-1 text-[10px] font-bold text-white uppercase tracking-wider shadow-xl z-[300]">
+             <span className="absolute left-full ml-3 hidden group-hover:block whitespace-nowrap rounded-lg bg-slate-800 px-2 py-1 text-xs font-bold text-white uppercase tracking-wider shadow-xl z-300">
                Sign Out
              </span>
            </button>
@@ -126,9 +125,9 @@ export function DashboardShell({
       </aside>
 
       {/* ── Main Content Area ── */}
-      <main className="flex min-w-0 flex-1 flex-col pl-0 lg:pl-[72px] h-screen overflow-hidden w-full bg-[#f8fafc]">
+      <main className="flex min-w-0 flex-1 flex-col pl-0 lg:pl-18 h-screen overflow-hidden w-full bg-slate-50">
         {/* ── Header (Synced with GanttApp) ── */}
-        <header className="z-[150] sticky top-0 border-b border-slate-200/60 bg-white/70 backdrop-blur-2xl px-6 lg:px-8 w-full h-[65px] flex items-center shadow-[0_4px_24px_-10px_rgba(0,0,0,0.05)]">
+        <header className="z-150 sticky top-0 border-b border-slate-200/60 bg-white/70 backdrop-blur-2xl px-6 lg:px-8 w-full h-[65px] flex items-center shadow-[0_4px_24px_-10px_rgba(0,0,0,0.05)]">
           <div className="flex items-center justify-between w-full">
             <div className="flex items-center gap-3 overflow-hidden">
                <h1 className="text-base lg:text-lg font-medium tracking-tight text-slate-800 flex items-baseline gap-2 truncate">
@@ -139,8 +138,8 @@ export function DashboardShell({
                    return bu ? (
                      <div className="flex items-center gap-3">
                        <span className="shrink-0">{base}</span>
-                       <span className="text-slate-300 font-light translate-y-[1px]">/</span>
-                       <span className="text-xs font-medium text-blue-600 uppercase tracking-[0.1em] truncate bg-blue-50 px-2 py-0.5 rounded-md self-center">
+                       <span className="text-slate-300 font-light translate-y-px">/</span>
+                       <span className="text-xs font-medium text-blue-600 uppercase tracking-widest truncate bg-blue-50 px-2 py-0.5 rounded-md self-center">
                          {bu}
                        </span>
                      </div>
@@ -157,7 +156,7 @@ export function DashboardShell({
                 <div className="hidden sm:flex items-center gap-3 border-l border-slate-200 pl-6">
                   <div className="flex flex-col text-right leading-tight">
                     <span className="text-xs font-semibold text-slate-800 leading-none">{userName}</span>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.1em] mt-1">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
                       {userRole?.replace('_', ' ')}
                     </span>
                   </div>
@@ -180,7 +179,7 @@ export function DashboardShell({
 
       {/* ── Global Exception Handler/Sync Error ── */}
       {syncError && (
-        <div className="fixed bottom-6 right-6 z-[1000] bg-slate-900 border border-slate-800 text-white px-5 py-3 rounded-2xl text-xs font-medium animate-enter flex items-center gap-3 shadow-2xl">
+        <div className="fixed bottom-6 right-6 z-1000 bg-slate-900 border border-slate-800 text-white px-5 py-3 rounded-2xl text-xs font-medium animate-enter flex items-center gap-3 shadow-2xl">
           <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
           <div className="flex flex-col">
             <span className="text-xs text-slate-400 uppercase tracking-[0.2em] mb-0.5">Sync Error</span>
