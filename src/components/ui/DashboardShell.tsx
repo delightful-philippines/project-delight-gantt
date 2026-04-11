@@ -29,6 +29,7 @@ export function DashboardShell({
     userRole: s.userRole,
     syncError: s.syncError
   }));
+  const roleLabel = userRole === 'viewer' ? 'Member' : userRole?.replace('_', ' ');
   const userName = user?.name || 'User';
   const userEmail = user?.email;
 
@@ -157,7 +158,7 @@ export function DashboardShell({
                   <div className="flex flex-col text-right leading-tight">
                     <span className="text-xs font-semibold text-slate-800 leading-none">{userName}</span>
                     <span className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
-                      {userRole?.replace('_', ' ')}
+                      {roleLabel}
                     </span>
                   </div>
                  <UserAvatar 

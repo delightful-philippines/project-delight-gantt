@@ -330,6 +330,9 @@ export function GanttApp(): JSX.Element {
     createBaseline,
     deleteBaseline,
     setZoom,
+    density,
+    setDensity,
+    duplicateTask,
     initialize,
     isLoading,
     isInitialized,
@@ -350,6 +353,9 @@ export function GanttApp(): JSX.Element {
     createBaseline: s.createBaseline,
     deleteBaseline: s.deleteBaseline,
     setZoom: s.setZoom,
+    density: s.density,
+    setDensity: s.setDensity,
+    duplicateTask: s.duplicateTask,
     initialize: s.initialize,
     isLoading: s.isLoading,
     isInitialized: s.isInitialized,
@@ -358,6 +364,7 @@ export function GanttApp(): JSX.Element {
   }));
 
   const activeSheet = activeProjectId ? projectsById[activeProjectId] : null;
+  const roleLabel = userRole === 'viewer' ? 'Member' : userRole.replace('_', ' ');
 
   const assignees = useMemo(() => {
     if (!activeSheet) return [];
@@ -640,9 +647,9 @@ export function GanttApp(): JSX.Element {
              <div className="h-10 w-96 bg-slate-900 rounded-full ml-[35%] opacity-35" />
           </div>
         </div>
-        <header className="z-150 sticky top-0 border-b border-slate-200/60 bg-white/70 backdrop-blur-2xl px-4 lg:px-6 py-4 shadow-[0_4px_24px_-10px_rgba(0,0,0,0.05)]">
-          <div className="mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-2 lg:gap-3 overflow-hidden">
+        <header className="z-150 sticky top-0 border-b border-slate-200/60 bg-white/70 backdrop-blur-2xl px-4 lg:px-5 py-3.5 shadow-[0_4px_24px_-10px_rgba(0,0,0,0.05)]">
+          <div className="mb-3 flex flex-col gap-2.5 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5 lg:gap-x-2.5">
               <button 
                 className="hidden lg:flex items-center gap-2 text-xs font-medium uppercase tracking-widest text-slate-400 hover:text-blue-600 transition-all group shrink-0"
               >
@@ -657,9 +664,14 @@ export function GanttApp(): JSX.Element {
                 </div>
                 <svg className="w-3.5 h-3.5 text-slate-300 group-hover:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
               </button>
-              <div className="flex flex-col lg:flex-row lg:items-center gap-0 lg:gap-4 overflow-hidden">
-                <h1 className="text-base lg:text-lg font-medium tracking-tight text-slate-800 flex items-center gap-2 truncate">
-                  {activeSheet?.project.name ?? "Select Project"}
+              <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 lg:gap-x-4">
+                <h1 className="min-w-0 text-base lg:text-lg font-medium tracking-tight text-slate-800 flex items-center gap-2 truncate">
+                  <span className="truncate">{activeSheet?.project.name ?? "Select Project"}</span>
+                  {activeSheet && (
+                    <span className="hidden sm:inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.2em] text-blue-600">
+                      Active Project
+                    </span>
+                  )}
                   {activeSheet && (
                     <button 
                       onClick={() => {
@@ -671,7 +683,7 @@ export function GanttApp(): JSX.Element {
                         });
                         setModal({ type: "edit_project", projectId: activeSheet.project.id });
                       }}
-                      className="hidden lg:block p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-blue-500 transition-all"
+                      className="hidden lg:block p-1.5 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-blue-500 transition-all shrink-0"
                       title="Rename Project"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
@@ -679,7 +691,7 @@ export function GanttApp(): JSX.Element {
                   )}
                 </h1>
                 {activeSheet && (
-                  <div className="flex items-center gap-1.5 lg:border-l lg:border-slate-200 lg:pl-4">
+                  <div className="flex items-center gap-1.5 lg:border-l lg:border-slate-200 lg:pl-4 shrink-0">
                     <span className="text-xs font-medium text-slate-400 uppercase tracking-tighter">Progress:</span>
                     <span className="text-sm font-medium text-blue-600 font-mono">
                       {activeSheet.project.progress ?? 0}%
@@ -688,9 +700,9 @@ export function GanttApp(): JSX.Element {
                 )}
               </div>
             </div>
-            <div className="flex items-center justify-end gap-2 sm:gap-3 no-scrollbar shrink-0">
+            <div className="flex min-w-0 flex-wrap items-center justify-start xl:justify-end gap-2 no-scrollbar shrink-0">
               {activeSheet && (
-                <div className="hidden md:flex items-center gap-2 bg-white/50 px-3 py-1.5 rounded-xl border border-slate-200/60 shadow-sm mr-2">
+                <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 mr-1.5">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Project Lead</span>
                   <div className="h-4 w-px bg-slate-200 mx-1" />
                   <span className="text-xs font-semibold text-slate-700">
@@ -708,14 +720,14 @@ export function GanttApp(): JSX.Element {
                 </div>
               )}
               
-              <div className="hidden sm:flex -space-x-1.5 mr-2">
+              <div className="hidden sm:flex -space-x-1.5 mr-1.5">
                 {projectViewers.slice(0, 3).map((u: DBUser) => (
                   <UserAvatar key={u.email} email={u.email} name={`${u.first_name || ''} ${u.last_name || ''}`} size="md" className="border-2 border-white ring-1 ring-slate-100" />
                 ))}
                 {projectViewers.length > 3 && (
                   <button 
                     onClick={() => setModal({ type: "team" })}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border-2 border-white bg-slate-50 text-xs font-medium text-slate-400 ring-1 ring-slate-100 hover:bg-slate-100 transition-colors"
+                    className="flex h-8 w-8 items-center justify-center rounded-xl border-2 border-white bg-slate-50 text-xs font-medium text-slate-400 ring-1 ring-slate-100 hover:bg-slate-100 transition-colors"
                   >
                     +{projectViewers.length - 3}
                   </button>
@@ -724,14 +736,14 @@ export function GanttApp(): JSX.Element {
 
               <div className="hidden lg:flex items-center gap-2">
                 <button 
-                  className="btn-premium btn-secondary h-9 px-3 sm:px-4 text-xs font-medium flex items-center gap-2"
+                  className="btn-premium btn-secondary h-8 px-3 text-xs font-medium flex items-center gap-2"
                   onClick={() => { navigator.clipboard.writeText(window.location.href).catch(()=>{}); showToast('Link Copied!', 'Project share link has been copied to clipboard.', 'success'); }}
                 >
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
-                  <span className="hidden md:inline">Share</span>
+                  <span className="hidden xl:inline">Share</span>
                 </button>
                 <button 
-                  className="btn-premium btn-primary h-9 px-3 sm:px-4 text-xs font-medium flex items-center gap-2"
+                  className="btn-premium btn-primary h-8 px-3 text-xs font-medium flex items-center gap-2"
                   onClick={() => {
                     if (!activeSheet) return;
                     const data = JSON.stringify(activeSheet, null, 2);
@@ -748,27 +760,27 @@ export function GanttApp(): JSX.Element {
                   }}
                 >
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                  <span className="hidden md:inline">Export</span>
+                  <span className="hidden xl:inline">Export</span>
                 </button>
                 {userRole !== 'viewer' && activeSheet && (
                   <button 
-                    className="btn-premium bg-white text-blue-600 hover:bg-slate-50 shadow-slate-200 h-9 px-3 sm:px-4 text-xs font-medium flex items-center gap-2 border border-slate-200"
+                    className="btn-premium bg-white text-blue-600 hover:bg-slate-50 shadow-slate-200 h-8 px-3 text-xs font-medium flex items-center gap-2 border border-slate-200"
                     onClick={() => {
                       setAiContext("");
                       setModal({ type: "ai_update" });
                     }}
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                    <span className="hidden md:inline font-bold">Build Gantt List</span>
+                    <span className="hidden xl:inline font-bold">Build Gantt List</span>
                   </button>
                 )}
 
                 {/* Current User Profile at the very right */}
-                <div className="hidden sm:flex items-center gap-3 border-l border-slate-200 pl-4 ml-2">
+                <div className="hidden xl:flex items-center gap-3 border-l border-slate-200 pl-4 ml-1.5">
                   <div className="flex flex-col text-right leading-tight">
                     <span className="text-xs font-semibold text-slate-800 leading-none">{user?.name || 'User'}</span>
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-                      {userRole?.replace('_', ' ')}
+                      {roleLabel}
                     </span>
                   </div>
                   <UserAvatar 
@@ -789,7 +801,7 @@ export function GanttApp(): JSX.Element {
                 <button 
                   key={tab} 
                   onClick={() => setActiveTab(tab)}
-                  className={`px-3 sm:px-4 py-1.5 text-xs font-medium uppercase tracking-wider transition-all rounded-lg ${activeTab === tab ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                  className={`px-3 sm:px-4 py-1.5 text-xs font-medium uppercase tracking-wider transition-all rounded-xl ${activeTab === tab ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
                 >
                   {tab}
                 </button>
@@ -826,30 +838,34 @@ export function GanttApp(): JSX.Element {
                       Critical Path
                     </button>
 
-                    <button 
-                      className="btn-premium btn-secondary h-9 px-4 text-xs font-medium flex items-center gap-2"
-                      onClick={() => setModal({ type: "baselines" })}
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                      Snapshots
-                    </button>
-
-                    <div className="h-6 w-px bg-slate-200 mx-1" />
+                    <div className="h-6 w-px bg-slate-200 mx-0.5" />
                     <CustomSelect
-                      className="min-w-50"
+                      className="min-w-44"
                       options={projectOptions}
                       value={activeSheet.project.id}
                       onChange={(val) => navigate(`/project/${val}`)}
                     />
-                    <CustomSelect
-                      className="min-w-35"
+                <CustomSelect
+                      className="min-w-32"
                       options={zoomOptions}
                       value={zoom}
                       onChange={(val) => setZoom(val as any)}
                     />
+                    <button
+                      className={`btn-premium h-9 px-3 text-xs font-medium flex items-center gap-2 ${
+                        density === 'compact' ? 'bg-slate-900 text-white hover:bg-slate-800' : 'btn-secondary'
+                      }`}
+                      onClick={() => setDensity(density === 'compact' ? 'comfortable' : 'compact')}
+                      title={density === 'compact' ? 'Switch to comfortable density' : 'Switch to compact density'}
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 8h16M4 16h16" />
+                      </svg>
+                      <span className="hidden xl:inline">{density === 'compact' ? 'Comfortable' : 'Compact'}</span>
+                    </button>
                     {userRole !== 'viewer' && (
                       <>
-                        <button className="btn-premium btn-primary h-9 px-4 text-xs group" onClick={() => {
+                        <button className="btn-premium btn-primary h-8 px-3 text-xs group" onClick={() => {
                           const defaultAssignee = activeSheet?.project.lead || "Unassigned";
                           setTaskDraft({ ...blankTaskDraft(activeSheet?.project.start_date || new Date().toISOString().slice(0, 10)), assignee: defaultAssignee });
                           setModal({ type: "add_task", parentTaskId: null });
@@ -858,7 +874,7 @@ export function GanttApp(): JSX.Element {
                           New Task
                         </button>
                         <button 
-                          className="btn-premium btn-danger h-9 w-9 p-0 flex items-center justify-center" 
+                          className="btn-premium btn-danger h-8 w-8 p-0 flex items-center justify-center" 
                           onClick={() => setModal({ type: "delete_project", projectId: activeSheet.project.id })}
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
@@ -870,7 +886,7 @@ export function GanttApp(): JSX.Element {
               </div>
               {userRole !== 'viewer' && (
                 <button 
-                  className="lg:hidden btn-premium btn-primary h-9 px-4 text-xs group" 
+                  className="lg:hidden btn-premium btn-primary h-8 px-3 text-xs group" 
                   onClick={() => setModal({ type: "add_task", parentTaskId: null })}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
@@ -919,8 +935,10 @@ export function GanttApp(): JSX.Element {
                       });
                       setModal({ type: "edit_task", taskId: t.id });
                     }}
+                    onDuplicateTask={(taskId: string) => duplicateTask(taskId)}
                     onDeleteTask={(t: Task) => setModal({ type: "delete_task", taskId: t.id })}
                     userRole={userRole}
+                    density={density}
                     systemUsers={systemUsers}
                     collapsedTaskIds={collapsedTaskIds}
                     onToggleCollapse={toggleCollapse}
@@ -934,6 +952,7 @@ export function GanttApp(): JSX.Element {
                     onScrollTop={setScrollTop}
                     viewportHeight={viewportHeight}
                     zoom={zoom}
+                    density={density}
                     onEditTask={(t: Task) => {
                        setTaskDraft({ 
                         title: t.title, 
@@ -1116,7 +1135,7 @@ export function GanttApp(): JSX.Element {
 
       {modal.type === "team" && (
         <ModalLayout
-          title="Shared Viewers"
+          title="Workspace Members"
           onCancel={() => setModal({ type: "none" })}
           onConfirm={() => setModal({ type: "none" })}
           confirmLabel="Close"
@@ -1132,16 +1151,16 @@ export function GanttApp(): JSX.Element {
                         {user.first_name || user.last_name ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : user.email}
                       </div>
                       <div className="text-xs text-slate-400 uppercase tracking-widest">
-                        {user.can_view_all_projects ? "Global Viewer" : "Restricted"}
+                        {user.can_view_all_projects ? "Workspace Access" : "Member"}
                       </div>
                     </div>
                   </div>
-                  <div className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-bold uppercase tracking-widest">Workspace Viewer</div>
+                  <div className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-bold uppercase tracking-widest">Workspace Member</div>
                 </div>
               ))
             ) : (
               <div className="py-8 text-center bg-slate-50 rounded-3xl border border-dashed border-slate-200">
-                <p className="text-sm text-slate-400">No global viewers configured.</p>
+                <p className="text-sm text-slate-400">No workspace members found.</p>
               </div>
             )}
           </div>

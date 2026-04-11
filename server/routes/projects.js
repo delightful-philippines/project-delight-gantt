@@ -5,16 +5,12 @@ import { requireUser, identifyRole, requireProjectAccess, requireProjectOwnershi
 const router = Router();
 
 // ── GET /api/projects ────────────────────────────────────────
-// Returns projects:
-// - Super Admins see all projects
-// - Regular users see projects that match their own business unit OR projects they lead
+// Returns all projects for any authenticated user.
 router.get('/', requireUser, identifyRole, async (req, res) => {
   try {
     let query = supabaseAdmin
       .from('projects')
       .select('*');
-
-    // All authenticated users see all projects
 
     const { data, error } = await query.order('created_at', { ascending: true });
 

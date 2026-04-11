@@ -18,6 +18,7 @@ export function ProjectsPage() {
   
   const {
     projectsById,
+    activeProjectId,
     initialize,
     isLoading,
     isInitialized,
@@ -28,6 +29,7 @@ export function ProjectsPage() {
     userRole
   } = useGanttStore((s) => ({
     projectsById: s.projectsById,
+    activeProjectId: s.activeProjectId,
     initialize: s.initialize,
     isLoading: s.isLoading,
     isInitialized: s.isInitialized,
@@ -281,8 +283,8 @@ export function ProjectsPage() {
         <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
         <input
           type="text"
-          placeholder="Search projects..."
-          className="w-48 lg:w-56 pl-9 pr-3 h-9 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:bg-white focus:w-64 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all placeholder:text-slate-400"
+          placeholder="Search all projects..."
+          className="w-48 lg:w-56 pl-9 pr-3 h-9 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:w-64 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all placeholder:text-slate-400"
           value={searchTerm}
           onChange={e => setSearchTerm(e.target.value)}
         />
@@ -301,7 +303,7 @@ export function ProjectsPage() {
 
       <button
         onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-        className="h-9 w-9 bg-white border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition-all active:scale-95 flex items-center justify-center flex-shrink-0"
+        className="h-9 w-9 bg-white border border-slate-200 rounded-xl text-slate-500 hover:bg-slate-50 transition-all active:scale-95 flex items-center justify-center flex-shrink-0"
         title={`Order: ${sortOrder === 'asc' ? 'Ascending' : 'Descending'}`}
       >
         <svg className={`w-4 h-4 transition-transform ${sortOrder === 'desc' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" /></svg>
@@ -309,7 +311,7 @@ export function ProjectsPage() {
 
       <button
         onClick={() => setShowModal({ type: 'create' })}
-        className="flex h-9 items-center gap-1.5 rounded-lg bg-blue-600 px-4 text-xs font-semibold text-white transition-all hover:bg-blue-700 active:scale-95 whitespace-nowrap flex-shrink-0"
+        className="flex h-9 items-center gap-1.5 rounded-xl bg-blue-600 px-4 text-xs font-semibold text-white transition-all hover:bg-blue-700 active:scale-95 whitespace-nowrap flex-shrink-0"
       >
         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg>
         <span className="hidden sm:inline">New Project</span>
@@ -411,24 +413,25 @@ export function ProjectsPage() {
                 <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
               </div>
               <h3 className="text-lg font-medium text-slate-800">No Projects Found</h3>
-              <p className="text-sm text-slate-400 mt-2 max-w-sm text-center font-medium">Create your first project to start tracking your timeline and team progress.</p>
+              <p className="text-sm text-slate-400 mt-2 max-w-sm text-center font-medium">Try a different search, or create a new project to get started.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-fade-in">
               {filteredProjects.map((sheet) => {
                 const progress = sheet.project.progress ?? 0;
+                const taskCount = Object.values(sheet.tasksById).filter((task) => !task.is_summary).length;
                 return (
                   <div 
                     key={sheet.project.id} 
                     onClick={() => navigate(`/project/${sheet.project.id}`)}
-                    className="group card-premium cursor-pointer flex flex-col p-6"
+                    className="group card-premium cursor-pointer flex flex-col p-6 transition-all"
                   >
                     <div className="flex justify-between items-start mb-5">
                       <div className="h-12 w-12 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600 group-hover:border-blue-100 transition-all duration-300">
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
                       </div>
                       
-                       <div className="relative" onClick={e => e.stopPropagation()}>
+                      <div className="relative" onClick={e => e.stopPropagation()}>
                         <button 
                           onClick={(e) => {
                             setActiveMenuId(activeMenuId === sheet.project.id ? null : sheet.project.id);
@@ -483,6 +486,10 @@ export function ProjectsPage() {
                     <p className="text-xs text-slate-400 mt-1.5 font-medium line-clamp-2 leading-relaxed overflow-hidden" title={sheet.project.description}>
                       {sheet.project.description || "Project goal and objectives not specified."}
                     </p>
+
+                    <div className="mt-4 inline-flex w-fit items-center rounded-full bg-slate-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">
+                      {taskCount} tasks
+                    </div>
                     
                     {/* Progress Section */}
                     <div className="mt-8">

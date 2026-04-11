@@ -96,12 +96,9 @@ export const requireProjectAccess = async (req, res, next) => {
     return res.status(400).json({ error: 'project_id is required for this operation.' });
   }
 
-  // Super Admins bypass check
-  if (req.userRole === 'super_admin') return next();
-
   const { data: project, error } = await supabaseAdmin
     .from('projects')
-    .select('lead, business_unit')
+    .select('id')
     .eq('id', projectId)
     .single();
 
@@ -109,24 +106,8 @@ export const requireProjectAccess = async (req, res, next) => {
     return res.status(404).json({ error: 'Project not found.' });
   }
 
-  // Public projects (no business unit) are visible to all authenticated users
-  if (!project.business_unit) return next();
-
-  // If they are explicitly the lead, grant access (Case-insensitive)
-  if (project.lead?.toLowerCase().trim() === req.userEmail.toLowerCase().trim()) return next();
-
-  // Check matching business unit
-  const { data: employeeData, error: empError } = await supabaseAdmin
-    .from('employees')
-    .select('business_unit')
-    .or(`company_email_add.eq."${req.userEmail.toLowerCase().trim()}",personal_email_add.eq."${req.userEmail.toLowerCase().trim()}"`)
-    .single();
-    
-  if (!empError && employeeData && employeeData.business_unit === project.business_unit) {
-    return next();
-  }
-
-  return res.status(403).json({ error: 'Access denied. Business unit mismatch.' });
+  // All authenticated users can view and work with any existing project.
+  return next();
 };
 
 /**

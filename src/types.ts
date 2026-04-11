@@ -48,6 +48,7 @@ export interface ProjectSheet {
 }
 
 export type ZoomLevel = "day" | "week" | "month";
+export type DensityLevel = "comfortable" | "compact";
 
 export interface TaskDraft {
   id?: string;
@@ -74,6 +75,7 @@ export interface GanttStore {
   projectsById: Record<string, ProjectSheet>;
   activeProjectId: string | null;
   zoom: ZoomLevel;
+  density: DensityLevel;
 
   // ── Sync state ────────────────────────────────────────────
   userRole: 'super_admin' | 'editor' | 'viewer';
@@ -91,7 +93,9 @@ export interface GanttStore {
   bulkAddTasks: (entries: Array<{ draft: TaskDraft; parentTaskId: string | null }>) => void;
   editTask: (taskId: string, draft: TaskDraft) => void;
   deleteTaskWithSubtree: (taskId: string) => void;
+  duplicateTask: (taskId: string) => void;
   createBaseline: (label: string) => Promise<void>;
   deleteBaseline: (index: number) => void;
   setZoom: (zoom: ZoomLevel) => void;
+  setDensity: (density: DensityLevel) => void;
 }

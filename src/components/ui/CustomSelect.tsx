@@ -64,7 +64,7 @@ export function CustomSelect({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex h-10 w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition-all hover:border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+        className="flex h-10 w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition-all hover:border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
       >
         <span className={`whitespace-nowrap truncate ${selectedOption ? "text-slate-900" : "text-slate-400"}`}>
           {selectedOption ? selectedOption.label : placeholder}
@@ -93,7 +93,7 @@ export function CustomSelect({
             left: `${rect.left}px`,
             width: `${rect.width}px`
           }}
-          className="z-[20000] animate-enter overflow-hidden rounded-lg border border-slate-200 bg-white p-1 shadow-xl"
+          className="z-[20000] animate-enter overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-xl"
         >
           {options.map((option) => (
             <button
@@ -104,7 +104,7 @@ export function CustomSelect({
                 onChange(option.value);
                 setIsOpen(false);
               }}
-              className={`flex w-full items-center px-3 py-2 text-sm transition-colors rounded-md ${
+              className={`flex w-full items-center px-3 py-2 text-sm transition-colors rounded-lg ${
                 option.value === value
                   ? "bg-blue-50 text-blue-700 font-medium"
                   : "text-slate-600 hover:bg-slate-50"

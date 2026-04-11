@@ -1,6 +1,7 @@
 import { create, StoreApi } from "zustand";
 import {
   Baseline,
+  DensityLevel,
   GanttStore,
   Project,
   ProjectDraft,
@@ -16,6 +17,8 @@ import type { DBTask } from "../lib/api";
 
 // ── Constants ─────────────────────────────────────────────────
 const ROOT_KEY = "root";
+const DEFAULT_DENSITY: DensityLevel =
+  (localStorage.getItem("gantt_density") as DensityLevel) || "comfortable";
 
 // ─────────────────────────────────────────────────────────────
 // Pure helpers (tree / recalc)
@@ -327,6 +330,7 @@ export const useGanttStore = create<GanttStore>((set, get) => ({
   projectsById:    {},
   activeProjectId: null,
   zoom:            (localStorage.getItem("gantt_zoom") as ZoomLevel) || "week",
+  density:         DEFAULT_DENSITY,
   userRole:        "editor",
   isLoading:       false,
   isInitialized:   false,
@@ -495,6 +499,27 @@ export const useGanttStore = create<GanttStore>((set, get) => ({
       return recalc(sheet);
     }),
 
+  // ── duplicateTask ─────────────────────────────────────────
+  duplicateTask: (taskId) =>
+    mutateActive(set, (sheet) => {
+      const task = sheet.tasksById[taskId];
+      if (!task) return sheet;
+
+      const siblings = sheet.childrenByParentId[task.parent_id ?? ROOT_KEY] ?? [];
+      const nextSort =
+        siblings.reduce((mx, siblingId) => Math.max(mx, sheet.tasksById[siblingId].sort_order), 0) + 1;
+      const copyId = id("task");
+      const duplicate: Task = {
+        ...structuredClone(task),
+        id: copyId,
+        title: task.title.endsWith(" (Copy)") ? task.title : `${task.title} (Copy)`,
+        sort_order: nextSort,
+        dependencies: [],
+      };
+      sheet.tasksById[copyId] = duplicate;
+      return recalc(sheet);
+    }),
+
   // ── createBaseline ───────────────────────────────────────
   createBaseline: async (label) => {
     let projectId: string | null = null;
@@ -581,6 +606,12 @@ export const useGanttStore = create<GanttStore>((set, get) => ({
   setZoom: (zoom) => {
     localStorage.setItem("gantt_zoom", zoom);
     set(() => ({ zoom }));
+  },
+
+  // ── setDensity ────────────────────────────────────────────
+  setDensity: (density) => {
+    localStorage.setItem("gantt_density", density);
+    set(() => ({ density }));
   },
 }));
 

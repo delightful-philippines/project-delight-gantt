@@ -1,9 +1,6 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Baseline, ProjectSheet, ZoomLevel } from "../types";
 import { addDays, diffDays, parseISO, minDate, maxDate } from "../utils/date";
-
-const ROW_HEIGHT = 48;
-const HEADER_HEIGHT = 48;
 
 interface Props {
   sheet: ProjectSheet;
@@ -12,6 +9,7 @@ interface Props {
   onScrollTop: (value: number) => void;
   viewportHeight: number;
   zoom: ZoomLevel;
+  density: 'comfortable' | 'compact';
   onEditTask: (task: any) => void; 
   showCriticalPath?: boolean;
   baseline?: Baseline;
@@ -37,14 +35,19 @@ export const Timeline = React.memo(function Timeline({
   rowIds, 
   scrollTop, 
   onScrollTop, 
-  viewportHeight, 
-  zoom, 
+  viewportHeight,
+  zoom,
+  density,
   onEditTask,
   showCriticalPath = false,
   baseline,
   userRole
 }: Props): JSX.Element {
   const ref = useRef<HTMLDivElement>(null);
+  const syncRef = useRef<HTMLDivElement>(null);
+  const [syncing, setSyncing] = useState(false);
+  const rowHeight = density === 'compact' ? 40 : 48;
+  const headerHeight = density === 'compact' ? 40 : 48;
   const scale = pxPerDay(zoom);
   const step = stepByZoom(zoom);
   const labelStep = Math.max(step, Math.ceil(120 / (scale * step)) * step);
@@ -59,9 +62,9 @@ export const Timeline = React.memo(function Timeline({
   const totalDays = Math.max(60, diffDays(minStart, addDays(maxEnd, 15)));
   const width = totalDays * scale + 50 + SVG_OFFSET_X;
   const chartWidth = Math.max(width, 1000);
-  const totalHeight = rowIds.length * ROW_HEIGHT + HEADER_HEIGHT;
-  const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - 8);
-  const endIndex = Math.min(rowIds.length, startIndex + Math.ceil(viewportHeight / ROW_HEIGHT) + 16);
+  const totalHeight = rowIds.length * rowHeight + headerHeight;
+  const startIndex = Math.max(0, Math.floor(scrollTop / rowHeight) - 8);
+  const endIndex = Math.min(rowIds.length, startIndex + Math.ceil(viewportHeight / rowHeight) + 16);
   const visible = rowIds.slice(startIndex, endIndex);
   const todayX = diffDays(minStart, new Date().toISOString().slice(0, 10)) * scale;
 
@@ -71,21 +74,35 @@ export const Timeline = React.memo(function Timeline({
     }
   };
 
+  const syncScrollLeft = (source: HTMLDivElement, target: HTMLDivElement | null) => {
+    if (!target) return;
+    if (target.scrollLeft !== source.scrollLeft) {
+      target.scrollLeft = source.scrollLeft;
+    }
+  };
+
   return (
     <section className="min-h-full min-w-0 bg-white shadow-inner flex flex-col relative">
-      <div className="scroll-premium flex-1 overflow-x-auto overflow-y-visible" ref={ref}>
+      <div
+        className="scroll-premium flex-1 overflow-x-auto overflow-y-visible"
+        ref={ref}
+        onScroll={(e) => {
+          const current = e.currentTarget;
+          if (!syncing) syncScrollLeft(current, syncRef.current);
+        }}
+      >
         <div className="sticky top-0 z-110 bg-white w-max">
-          <svg width={chartWidth} height={HEADER_HEIGHT} className="select-none block">
+          <svg width={chartWidth} height={headerHeight} className="select-none block">
             <g transform={`translate(${SVG_OFFSET_X}, 0)`}>
               {/* Header Background */}
-              <rect x={-SVG_OFFSET_X} y={0} width={chartWidth} height={HEADER_HEIGHT} fill="#f8fafc" />
-              <line x1={-SVG_OFFSET_X} x2={chartWidth - SVG_OFFSET_X} y1={HEADER_HEIGHT} y2={HEADER_HEIGHT} stroke="#e2e8f0" strokeWidth="1" />
+              <rect x={-SVG_OFFSET_X} y={0} width={chartWidth} height={headerHeight} fill="#f8fafc" />
+              <line x1={-SVG_OFFSET_X} x2={chartWidth - SVG_OFFSET_X} y1={headerHeight} y2={headerHeight} stroke="#e2e8f0" strokeWidth="1" />
 
               {/* Today Indicator (Top Part) */}
               <g>
-                <line x1={todayX} x2={todayX} y1={0} y2={HEADER_HEIGHT} stroke="#3b82f6" strokeWidth="1.5" strokeDasharray="3 3" opacity="0.6" />
-                <circle cx={todayX} cy={HEADER_HEIGHT / 2} r="3" fill="#3b82f6" />
-                <circle cx={todayX} cy={HEADER_HEIGHT / 2} r="6" fill="#3b82f6" opacity="0.15" />
+                <line x1={todayX} x2={todayX} y1={0} y2={headerHeight} stroke="#3b82f6" strokeWidth="1.5" strokeDasharray="3 3" opacity="0.6" />
+                <circle cx={todayX} cy={headerHeight / 2} r="3" fill="#3b82f6" />
+                <circle cx={todayX} cy={headerHeight / 2} r="6" fill="#3b82f6" opacity="0.15" />
               </g>
 
               {/* Time Rulers */}
@@ -103,13 +120,13 @@ export const Timeline = React.memo(function Timeline({
                   <g key={`tick_h_${idx}`}>
                     {isNewMonth && (
                       <>
-                        <line x1={x} x2={x} y1={0} y2={HEADER_HEIGHT} stroke="#f1f5f9" strokeWidth="1" />
+                        <line x1={x} x2={x} y1={0} y2={headerHeight} stroke="#f1f5f9" strokeWidth="1" />
                         <text x={x + 8} y={18} className="fill-slate-400 text-xs font-medium uppercase tracking-wider">{monthLabel}</text>
                       </>
                     )}
                     {day % labelStep === 0 && (
                       <g>
-                        <text x={x + 4} y={HEADER_HEIGHT - 12} className="fill-slate-400 font-mono text-xs font-medium">
+                        <text x={x + 4} y={headerHeight - 12} className="fill-slate-400 font-mono text-xs font-medium">
                           <tspan className="fill-slate-300 font-normal">{dayLabel}</tspan> {dayNum}
                         </text>
                       </g>
@@ -121,7 +138,7 @@ export const Timeline = React.memo(function Timeline({
           </svg>
         </div>
 
-        <svg width={chartWidth} height={totalHeight} className="select-none block" style={{ marginTop: -HEADER_HEIGHT }}>
+        <svg width={chartWidth} height={totalHeight} className="select-none block" style={{ marginTop: -headerHeight }}>
           <g transform={`translate(${SVG_OFFSET_X}, 0)`}>
             <defs>
               <linearGradient id="barGradient" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -154,14 +171,14 @@ export const Timeline = React.memo(function Timeline({
             </defs>
 
             {/* Header Background */}
-            <rect x={-SVG_OFFSET_X} y={0} width={chartWidth} height={HEADER_HEIGHT} fill="#f8fafc" />
-            <line x1={-SVG_OFFSET_X} x2={chartWidth - SVG_OFFSET_X} y1={HEADER_HEIGHT} y2={HEADER_HEIGHT} stroke="#e2e8f0" strokeWidth="1" />
+            <rect x={-SVG_OFFSET_X} y={0} width={chartWidth} height={headerHeight} fill="#f8fafc" />
+            <line x1={-SVG_OFFSET_X} x2={chartWidth - SVG_OFFSET_X} y1={headerHeight} y2={headerHeight} stroke="#e2e8f0" strokeWidth="1" />
 
             {/* Grid Columns */}
             {Array.from({ length: totalDays }).map((_, i) => (
               <g key={`grid_${i}`}>
-                {i % 7 >= 5 && <rect x={i * scale} y={HEADER_HEIGHT} width={scale} height={totalHeight - HEADER_HEIGHT} fill="#f1f5f9" opacity="0.4" />}
-                <line x1={i * scale} x2={i * scale} y1={HEADER_HEIGHT} y2={totalHeight} stroke="#f1f5f9" strokeWidth="1" />
+                {i % 7 >= 5 && <rect x={i * scale} y={headerHeight} width={scale} height={totalHeight - headerHeight} fill="#f1f5f9" opacity="0.4" />}
+                <line x1={i * scale} x2={i * scale} y1={headerHeight} y2={totalHeight} stroke="#f1f5f9" strokeWidth="1" />
               </g>
             ))}
 
@@ -173,13 +190,13 @@ export const Timeline = React.memo(function Timeline({
               const prevMonth = day > 0 ? parseISO(addDays(minStart, day - step)).getMonth() : -1;
               const isNewMonth = date.getMonth() !== prevMonth;
               if (!isNewMonth) return null;
-              return <line key={`v_tick_${idx}`} x1={x} x2={x} y1={HEADER_HEIGHT} y2={totalHeight} stroke="#f1f5f9" strokeWidth="1" />;
+              return <line key={`v_tick_${idx}`} x1={x} x2={x} y1={headerHeight} y2={totalHeight} stroke="#f1f5f9" strokeWidth="1" />;
             })}
 
             {/* Today Indicator */}
             <g>
-              <rect x={todayX - 1} y={HEADER_HEIGHT} width="2" height={totalHeight - HEADER_HEIGHT} fill="#3b82f6" opacity="0.1" />
-              <line x1={todayX} x2={todayX} y1={HEADER_HEIGHT} y2={totalHeight} stroke="#3b82f6" strokeWidth="1.5" strokeDasharray="3 3" opacity="0.6" />
+              <rect x={todayX - 1} y={headerHeight} width="2" height={totalHeight - headerHeight} fill="#3b82f6" opacity="0.1" />
+              <line x1={todayX} x2={todayX} y1={headerHeight} y2={totalHeight} stroke="#3b82f6" strokeWidth="1.5" strokeDasharray="3 3" opacity="0.6" />
             </g>
 
             {/* Parent-Subtask Connector Lines */}
@@ -198,13 +215,13 @@ export const Timeline = React.memo(function Timeline({
 
                   const parentRow = rowIndexMap.get(taskId)!;
                   const parentX = diffDays(minStart, parent.start_date) * scale;
-                  const parentY = HEADER_HEIGHT + parentRow * ROW_HEIGHT + ROW_HEIGHT / 2;
+                  const parentY = headerHeight + parentRow * rowHeight + rowHeight / 2;
 
                   // Find vertical extent
                   const childRows = visibleChildren.map(id => rowIndexMap.get(id)!);
                   const minChildRow = Math.min(...childRows);
                   const maxChildRow = Math.max(...childRows);
-                  const lastChildY = HEADER_HEIGHT + maxChildRow * ROW_HEIGHT + ROW_HEIGHT / 2;
+                  const lastChildY = headerHeight + maxChildRow * rowHeight + rowHeight / 2;
 
                   // Connector logic: 
                   // 1. Horizontal stub left from parent start
@@ -235,7 +252,7 @@ export const Timeline = React.memo(function Timeline({
                         const child = sheet.tasksById[childId];
                         const childRow = rowIndexMap.get(childId)!;
                         const childX = diffDays(minStart, child.start_date) * scale;
-                        const childY = HEADER_HEIGHT + childRow * ROW_HEIGHT + ROW_HEIGHT / 2;
+                        const childY = headerHeight + childRow * rowHeight + rowHeight / 2;
                         return (
                           <path 
                             key={`stub-${taskId}-${childId}`}
@@ -266,7 +283,7 @@ export const Timeline = React.memo(function Timeline({
                   if (targetRow === -1) return [];
 
                   const targetX = diffDays(minStart, task.start_date) * scale;
-                  const targetY = HEADER_HEIGHT + targetRow * ROW_HEIGHT + ROW_HEIGHT / 2;
+                  const targetY = headerHeight + targetRow * rowHeight + rowHeight / 2;
 
                   return task.dependencies.map(predId => {
                     const pred = sheet.tasksById[predId];
@@ -276,7 +293,7 @@ export const Timeline = React.memo(function Timeline({
                     if (predRow === -1) return null;
 
                     const predEndX = (diffDays(minStart, pred.start_date) + (pred.is_milestone ? 0 : pred.duration)) * scale;
-                    const predY = HEADER_HEIGHT + predRow * ROW_HEIGHT + ROW_HEIGHT / 2;
+                    const predY = headerHeight + predRow * rowHeight + rowHeight / 2;
 
                     // Elbow logic: Finish-to-Start
                     // 1. Draw out from end of predecessor
@@ -325,9 +342,9 @@ export const Timeline = React.memo(function Timeline({
               const w = Math.max(scale, task.duration * scale);
               const progressW = w * (task.progress / 100);
               
-              const barHeight = 24;
-              const y = HEADER_HEIGHT + row * ROW_HEIGHT + (ROW_HEIGHT - barHeight) / 2;
-              const rx = 6;
+              const barHeight = density === 'compact' ? 20 : 24;
+              const y = headerHeight + row * rowHeight + (rowHeight - barHeight) / 2;
+              const rx = density === 'compact' ? 5 : 6;
               const fill = task.bg_color;
 
               // Helper for sharp left corners
@@ -441,6 +458,20 @@ export const Timeline = React.memo(function Timeline({
             })}
           </g>
         </svg>
+      </div>
+
+      <div className="sticky bottom-0 z-120 border-t border-slate-200/70 bg-white/95 backdrop-blur-sm">
+        <div
+          ref={syncRef}
+          className="scroll-premium h-4 overflow-x-auto overflow-y-hidden"
+          onScroll={(e) => {
+            setSyncing(true);
+            syncScrollLeft(e.currentTarget, ref.current);
+            window.requestAnimationFrame(() => setSyncing(false));
+          }}
+        >
+          <div style={{ width: chartWidth, height: 1 }} />
+        </div>
       </div>
     </section>
   );

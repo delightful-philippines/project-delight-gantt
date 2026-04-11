@@ -9,7 +9,7 @@ router.use(requireUser);
 router.use(identifyRole);
 
 // ── GET /api/tasks?project_id=xxx ───────────────────────────
-// Returns tasks + their dependency IDs for a given project.
+// Returns tasks + their dependency IDs for any existing project the user is authenticated to view.
 router.get('/', requireProjectAccess, async (req, res) => {
   const { project_id } = req.query;
   if (!project_id) return res.status(400).json({ error: 'project_id query param required.' });

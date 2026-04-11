@@ -9,6 +9,7 @@ router.use(requireUser);
 router.use(identifyRole);
 
 // ── GET /api/baselines?project_id=xxx ────────────────────────
+// Any authenticated user can read baselines for existing projects.
 router.get('/', requireProjectAccess, async (req, res) => {
   const { project_id } = req.query;
   if (!project_id) return res.status(400).json({ error: 'project_id query param required.' });
