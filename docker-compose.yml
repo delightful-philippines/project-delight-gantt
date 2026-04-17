@@ -1,6 +1,6 @@
 services:
   backend:
-    image: deltan89/project-delight-gantt-backend:latest
+    image: zot.alcanzarin.com/project-delight-gantt-backend:${APP_VERSION:-latest}
     build:
       context: .
       dockerfile: Dockerfile.backend
@@ -15,7 +15,7 @@ services:
       - app-network
 
   frontend:
-    image: deltan89/project-delight-gantt-frontend:latest
+    image: zot.alcanzarin.com/project-delight-gantt-frontend:${APP_VERSION:-latest}
     build:
       context: .
       dockerfile: Dockerfile.frontend
