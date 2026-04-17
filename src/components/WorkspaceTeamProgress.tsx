@@ -4,6 +4,8 @@ import { ProjectSheet } from '../types';
 import { DBUser } from '../lib/api';
 import { UserAvatar } from './ui/UserAvatar';
 
+const EXTRA_TASK_NOTE_STORAGE_KEY = 'workspace-team-extra-task-notes';
+
 interface Props {
   projects: ProjectSheet[];
   systemUsers: DBUser[];
@@ -109,10 +111,23 @@ export function WorkspaceTeamProgress({ projects, systemUsers, hideTitle = false
 
   // ── PMS state ─────────────────────────────────────────────
   const [openMenuKey, setOpenMenuKey] = useState<string | null>(null);
+  const [extraTaskNotes, setExtraTaskNotes] = useState<Record<string, string>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const raw = window.localStorage.getItem(EXTRA_TASK_NOTE_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
   const [pmsTarget, setPmsTarget] = useState<{
     key: string; name: string; email: string; employeeId?: number | null;
     position?: string; businessUnit?: string;
   } | null>(null);
+  const [noteTarget, setNoteTarget] = useState<{
+    key: string; name: string; email: string;
+  } | null>(null);
+  const [noteDraft, setNoteDraft] = useState('');
   const [pmsYear, setPmsYear] = useState<number>(new Date().getFullYear());
   const [pmsQuarter, setPmsQuarter] = useState<1 | 2 | 3 | 4>(
     Math.ceil((new Date().getMonth() + 1) / 3) as 1 | 2 | 3 | 4
@@ -132,6 +147,16 @@ export function WorkspaceTeamProgress({ projects, systemUsers, hideTitle = false
     return () => document.removeEventListener('mousedown', handler);
   }, [openMenuKey]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(EXTRA_TASK_NOTE_STORAGE_KEY, JSON.stringify(extraTaskNotes));
+  }, [extraTaskNotes]);
+
+  const getExtraTaskNote = (email?: string | null) => {
+    const key = normalize(email);
+    return key ? (extraTaskNotes[key] || '') : '';
+  };
+
   const handleGeneratePms = async () => {
     if (!pmsTarget) return;
     setPmsLoading(true);
@@ -143,6 +168,7 @@ export function WorkspaceTeamProgress({ projects, systemUsers, hideTitle = false
         employeeName: pmsTarget.name,
         employeePosition: pmsTarget.position ?? null,
         employeeBusinessUnit: pmsTarget.businessUnit ?? null,
+        extraTaskNote: getExtraTaskNote(pmsTarget.email) || null,
         year: pmsYear,
         quarter: pmsQuarter,
       });
@@ -159,6 +185,20 @@ export function WorkspaceTeamProgress({ projects, systemUsers, hideTitle = false
     } finally {
       setPmsLoading(false);
     }
+  };
+
+  const handleSaveExtraTaskNote = () => {
+    if (!noteTarget) return;
+    const key = normalize(noteTarget.email);
+    setExtraTaskNotes(prev => {
+      const next = { ...prev };
+      if (!key) return next;
+      if (noteDraft.trim()) next[key] = noteDraft.trim();
+      else delete next[key];
+      return next;
+    });
+    setNoteTarget(null);
+    setNoteDraft('');
   };
 
   return (
@@ -198,6 +238,23 @@ export function WorkspaceTeamProgress({ projects, systemUsers, hideTitle = false
               </button>
               {openMenuKey === s.key && (
                 <div className="absolute right-0 top-8 w-44 bg-white rounded-xl shadow-lg border border-slate-100 py-1 z-50">
+                  <button
+                    onClick={() => {
+                      setOpenMenuKey(null);
+                      setNoteTarget({
+                        key: s.key,
+                        name: s.name,
+                        email: s.email,
+                      });
+                      setNoteDraft(getExtraTaskNote(s.email));
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5h2m-1-1v2m-7 5a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H7a2 2 0 01-2-2v-8zm3 3h8m-8 4h5" />
+                    </svg>
+                    Extra Task Note
+                  </button>
                   <button
                     onClick={() => {
                       setOpenMenuKey(null);
@@ -386,6 +443,32 @@ export function WorkspaceTeamProgress({ projects, systemUsers, hideTitle = false
                 </p>
               </div>
 
+              {getExtraTaskNote(pmsTarget.email) && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest">Extra Task Note</label>
+                    <button
+                      onClick={() => {
+                        setNoteTarget({ key: pmsTarget.key, name: pmsTarget.name, email: pmsTarget.email });
+                        setNoteDraft(getExtraTaskNote(pmsTarget.email));
+                      }}
+                      disabled={pmsLoading}
+                      className="text-[10px] font-bold uppercase tracking-widest text-blue-600 hover:text-blue-700 disabled:opacity-50"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                  <div className="max-h-40 overflow-y-auto rounded-xl border border-amber-100 bg-amber-50/60 px-3 py-2.5">
+                    <pre className="whitespace-pre-wrap text-[11px] leading-5 text-slate-600 font-medium">
+                      {getExtraTaskNote(pmsTarget.email)}
+                    </pre>
+                  </div>
+                  <p className="text-[11px] text-slate-400 font-medium">
+                    This note is reviewed during PMS generation and merged with the employee&apos;s quarter tasks.
+                  </p>
+                </div>
+              )}
+
               {/* Error */}
               {pmsError && (
                 <div className="flex items-start gap-2.5 p-3.5 bg-red-50 border border-red-100 rounded-xl">
@@ -419,6 +502,84 @@ export function WorkspaceTeamProgress({ projects, systemUsers, hideTitle = false
                   </>
                 )}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {noteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-md">
+          <div className="bg-white rounded-2xl shadow-[0_24px_64px_rgba(0,0,0,0.14)] w-full max-w-2xl mx-4 overflow-hidden">
+            <div className="relative px-6 pt-6 pb-5 border-b border-slate-100">
+              <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/5 blur-[60px] rounded-full -mr-12 -mt-12 pointer-events-none" />
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center flex-shrink-0">
+                    <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5h2m-1-1v2m-7 5a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H7a2 2 0 01-2-2v-8zm3 3h8m-8 4h5" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-900 tracking-tight">Extra Task Note</h3>
+                    <p className="text-[11px] text-slate-400 font-medium mt-0.5">{noteTarget.name}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => { setNoteTarget(null); setNoteDraft(''); }}
+                  className="h-8 w-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors flex-shrink-0"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div className="px-6 py-5 space-y-4">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+                <p className="text-[11px] text-slate-500 leading-5">
+                  Add month-grouped notes for work that may not exist as tracked project tasks. Use headers like <span className="font-semibold text-slate-700">January:</span>, <span className="font-semibold text-slate-700">February:</span>, and one line per item.
+                </p>
+              </div>
+
+              <textarea
+                value={noteDraft}
+                onChange={e => setNoteDraft(e.target.value)}
+                rows={16}
+                className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 resize-y"
+                placeholder={`January:\nDevelop Brigada Golf Range new Booking System - Frontend and Xendit payment integration\nEnhance the OTA website UI/UX\n\nFebruary:\nCreated Admin Support Panel for OTA - Flight\nDeveloped the Project Delight Gantt Website for Progress Tracker\n\nMarch:\nBrigada Learning System Deployment`}
+              />
+
+              <div className="flex items-center justify-between gap-3">
+                <button
+                  onClick={() => {
+                    if (!noteTarget) return;
+                    const key = normalize(noteTarget.email);
+                    setExtraTaskNotes(prev => {
+                      const next = { ...prev };
+                      if (key) delete next[key];
+                      return next;
+                    });
+                    setNoteDraft('');
+                  }}
+                  className="h-11 px-4 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+                >
+                  Clear Note
+                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => { setNoteTarget(null); setNoteDraft(''); }}
+                    className="h-11 px-4 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveExtraTaskNote}
+                    className="h-11 px-5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold transition-colors shadow-sm shadow-amber-200"
+                  >
+                    Save Note
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

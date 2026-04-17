@@ -214,6 +214,7 @@ export const api = {
       employeeName: string;
       employeePosition?: string | null;
       employeeBusinessUnit?: string | null;
+      extraTaskNote?: string | null;
       year: number;
       quarter: 1 | 2 | 3 | 4;
     }): Promise<Blob> => {

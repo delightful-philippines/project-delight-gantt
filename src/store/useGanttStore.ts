@@ -615,6 +615,55 @@ export const useGanttStore = create<GanttStore>((set, get) => ({
   },
 }));
 
+// ── Auto-sync subscription ────────────────────────────────────
+let syncTimer: NodeJS.Timeout | null = null;
+const SYNC_DEBOUNCE = 1000; // ms
+let lastSyncedState: Record<string, any> = {};
+
+useGanttStore.subscribe(
+  (state) => state.projectsById[state.activeProjectId || '']?.tasksById,
+  (tasksById) => {
+    if (!tasksById) return;
+
+    // Clear previous timer
+    if (syncTimer) clearTimeout(syncTimer);
+
+    // Debounce sync
+    syncTimer = setTimeout(async () => {
+      const state = useGanttStore.getState();
+      const activeSheet = state.projectsById[state.activeProjectId || ''];
+      if (!activeSheet) return;
+
+      try {
+        const tasksToSync = Object.values(activeSheet.tasksById).map((task) => ({
+          id: task.id,
+          project_id: task.project_id,
+          parent_id: task.parent_id,
+          title: task.title,
+          start_date: task.start_date,
+          end_date: task.end_date,
+          duration: task.duration,
+          bg_color: task.bg_color,
+          text_color: task.text_color,
+          is_summary: task.is_summary,
+          is_milestone: task.is_milestone,
+          is_critical: task.is_critical,
+          level: task.level,
+          sort_order: task.sort_order,
+          progress: task.progress,
+          assignee: task.assignee,
+          dependencies: task.dependencies,
+        }));
+
+        await api.tasks.bulk(activeSheet.project.id, tasksToSync);
+        console.log('[store] ✅ Auto-synced', tasksToSync.length, 'tasks to DB');
+      } catch (err) {
+        console.error('[store] ❌ Sync failed:', err);
+      }
+    }, SYNC_DEBOUNCE);
+  }
+);
+
 // ── hydrateFromDB (helper used by initialize) ─────────────────
 
 async function hydrateFromDB(

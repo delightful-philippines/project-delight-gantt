@@ -400,6 +400,7 @@ export function GanttApp(): JSX.Element {
   const [collapsedTaskIds, setCollapsedTaskIds] = useState<Set<string>>(new Set());
   const [aiContext, setAiContext] = useState("");
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [replaceAllTasks, setReplaceAllTasks] = useState(false);
 
   const projectViewers = useMemo(() => {
     if (!registeredUsers.length) return [];
@@ -1463,43 +1464,63 @@ export function GanttApp(): JSX.Element {
         <ModalLayout
           title="AI Auto-Update"
           confirmLabel={
-               isGeneratingAI 
+               isGeneratingAI
                   ? <div className="flex items-center gap-2"><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin shrink-0" /> <span className="whitespace-nowrap">Generating...</span></div>
                   : "Generate Updates"
           }
           confirmDisabled={isGeneratingAI}
-          onCancel={() => { if (!isGeneratingAI) setModal({ type: "none" }); }}
+          onCancel={() => {
+            if (!isGeneratingAI) {
+              setModal({ type: "none" });
+              setReplaceAllTasks(false);
+            }
+          }}
           onConfirm={async () => {
              if (!aiContext.trim() || isGeneratingAI) return;
              setIsGeneratingAI(true);
              try {
+                // Delete all existing tasks first if "Replace all tasks" is enabled
+                if (replaceAllTasks) {
+                   const allTaskIds = Object.keys(activeSheet.tasksById);
+                   for (const taskId of allTaskIds) {
+                      const task = activeSheet.tasksById[taskId];
+                      if (!task.parent_id) {
+                         // Delete root tasks (which will cascade to children)
+                         deleteTaskWithSubtree(taskId);
+                      }
+                   }
+                }
+
                 const res = await api.ai.generateUpdate({
                    project: { id: activeSheet.project.id, name: activeSheet.project.name, start_date: activeSheet.project.start_date },
-                   currentTasks: Object.values(activeSheet.tasksById),
+                   currentTasks: replaceAllTasks ? [] : Object.values(activeSheet.tasksById),
                    context: aiContext,
                 });
-                
+
                 let count = 0;
                  const tempIdToRealId = new Map<string, string>();
 
-                 // Collect all update_task ops first (each triggers its own sync — acceptable)
-                 for (const op of res.operations) {
-                    if (op.type === "update_task" && op.taskId && activeSheet.tasksById[op.taskId]) {
-                       const t = activeSheet.tasksById[op.taskId];
-                       const updates: TaskDraft = {
-                          title: op.changes.title ?? t.title,
-                          start_date: op.changes.start_date ?? t.start_date,
-                          end_date: op.changes.end_date ?? t.end_date,
-                          progress: op.changes.progress ?? t.progress,
-                          assignee: op.changes.assignee ?? t.assignee,
-                          bg_color: t.bg_color,
-                          text_color: t.text_color,
-                          dependencies: t.dependencies,
-                          is_milestone: t.is_milestone
-                       };
-                       editTask(op.taskId, updates);
-                       count++;
-                    }
+                 // If replacing all tasks, skip update operations and only create new ones
+                 if (!replaceAllTasks) {
+                   // Collect all update_task ops first (each triggers its own sync — acceptable)
+                   for (const op of res.operations) {
+                      if (op.type === "update_task" && op.taskId && activeSheet.tasksById[op.taskId]) {
+                         const t = activeSheet.tasksById[op.taskId];
+                         const updates: TaskDraft = {
+                            title: op.changes.title ?? t.title,
+                            start_date: op.changes.start_date ?? t.start_date,
+                            end_date: op.changes.end_date ?? t.end_date,
+                            progress: op.changes.progress ?? t.progress,
+                            assignee: op.changes.assignee ?? t.assignee,
+                            bg_color: t.bg_color,
+                            text_color: t.text_color,
+                            dependencies: t.dependencies,
+                            is_milestone: t.is_milestone
+                         };
+                         editTask(op.taskId, updates);
+                         count++;
+                      }
+                   }
                  }
 
                  // Collect all create_task ops and resolve temp IDs first,
@@ -1530,6 +1551,7 @@ export function GanttApp(): JSX.Element {
                  if (toCreate.length > 0) bulkAddTasks(toCreate);
                  showToast("AI Update Complete", `Applied ${count} operations based on your context.`, "success");
                 setModal({ type: "none" });
+                setReplaceAllTasks(false);
              } catch (err: any) {
                 console.error("AI Error:", err);
                 showToast("AI Update Failed", err.message || "Failed to generate updates. Make sure GEMINI_API_KEY is set.", "danger");
@@ -1560,6 +1582,20 @@ export function GanttApp(): JSX.Element {
                 autoFocus
                 disabled={isGeneratingAI}
               />
+            </label>
+
+            <label className="flex items-center gap-3 p-3 rounded-lg bg-amber-50 border border-amber-200 cursor-pointer hover:bg-amber-100 transition-colors">
+              <input
+                type="checkbox"
+                checked={replaceAllTasks}
+                onChange={(e) => setReplaceAllTasks(e.target.checked)}
+                disabled={isGeneratingAI}
+                className="w-4 h-4 rounded"
+              />
+              <div className="flex-1">
+                <span className="text-sm font-medium text-amber-900">Replace all tasks</span>
+                <p className="text-xs text-amber-700 mt-0.5">Delete all existing tasks and create new ones from this context</p>
+              </div>
             </label>
           </div>
         </ModalLayout>

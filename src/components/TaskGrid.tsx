@@ -54,7 +54,7 @@ export const TaskGrid = React.memo(function TaskGrid({
   const [rect, setRect] = useState<{ top: number; left: number; width: number } | null>(null);
   const rowHeight = density === "compact" ? 40 : 48;
   const headerHeight = density === "compact" ? 40 : 48;
-  const gridColumns = "minmax(180px, 1.4fr) 100px 100px 70px 70px 100px 42px";
+  const gridColumns = "minmax(180px, 1.4fr) 100px 100px 70px 70px 100px 140px";
 
   useEffect(() => {
     const onDocDown = (e: MouseEvent): void => {
